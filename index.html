@@ -6,7 +6,7 @@
 <title>AI语文评价系统</title>
 <script src="https://cdn.jsdelivr.net/npm/hydrogen-js-sdk@3.0.2/dist/Bmob-3.0.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -791,31 +791,29 @@ async function processOCR(input){
   reader.onload=function(e){$('ocr-preview-img').src=e.target.result;show('ocr-preview')};
   reader.readAsDataURL(file);
   show('ocr-loading');hide('ocr-result');
-  $('ocr-status').textContent='正在加载识别引擎...';
+  $('ocr-status').textContent='正在初始化识别引擎...';
   try{
-    // 用createWorker方式（v5兼容）
-    if(typeof Tesseract!=='undefined'){
-      var worker=await Tesseract.createWorker('chi_sim',1,{
-        logger:function(m){
-          if(m.status==='loading tesseract core')$('ocr-status').textContent='正在加载核心引擎...';
-          else if(m.status==='loading language traineddata')$('ocr-status').textContent='正在加载中文语言包...';
-          else if(m.status==='initializing tesseract')$('ocr-status').textContent='正在初始化...';
-          else if(m.status==='recognizing text')$('ocr-status').textContent='正在识别文字...';
-        }
-      });
-      var result=await worker.recognize(file);
-      await worker.terminate();
-      hide('ocr-loading');
-      var text=result.data.text.trim();
-      if(!text){$('ocr-result').innerHTML='<p style="color:#e67e22">未识别到文字，请重新拍照（建议：光线充足、文字清晰、避免倾斜）</p>';return}
-      $('ocr-result').innerHTML='<div class="form-group"><label>识别结果（可修改）</label><textarea id="essay-content" style="min-height:200px">'+text.replace(/</g,'&lt;')+'</textarea></div>';
-    }else{
-      hide('ocr-loading');
-      $('ocr-result').innerHTML='<p style="color:#dc3545">OCR引擎加载失败，请检查网络后刷新页面重试</p>';
-    }
+    if(typeof Tesseract==='undefined'){throw new Error('OCR引擎未加载，请刷新页面')}
+    // Tesseract.js v4 稳定写法
+    var worker=await Tesseract.createWorker({
+      logger:function(m){
+        if(m.status==='loading tesseract core')$('ocr-status').textContent='加载核心引擎... ('+Math.round((m.progress||0)*100)+'%)';
+        else if(m.status==='loading language traineddata')$('ocr-status').textContent='加载中文语言包... ('+Math.round((m.progress||0)*100)+'%)，首次需下载约15MB';
+        else if(m.status==='initializing api')$('ocr-status').textContent='初始化识别接口...';
+        else if(m.status==='recognizing text')$('ocr-status').textContent='正在识别文字... ('+Math.round((m.progress||0)*100)+'%)';
+      }
+    });
+    await worker.loadLanguage('chi_sim');
+    await worker.initialize('chi_sim');
+    var result=await worker.recognize(file);
+    await worker.terminate();
+    hide('ocr-loading');
+    var text=result.data.text.trim();
+    if(!text){$('ocr-result').innerHTML='<p style="color:#e67e22">未识别到文字，请重新拍照</p><p style="color:#888;font-size:13px">建议：光线充足、文字清晰、手机正对文稿、避免倾斜和阴影</p>';return}
+    $('ocr-result').innerHTML='<div class="form-group"><label>识别结果（可修改后提交）</label><textarea id="essay-content" style="min-height:200px">'+text.replace(/</g,'&lt;')+'</textarea></div>';
   }catch(err){
     hide('ocr-loading');
-    $('ocr-result').innerHTML='<p style="color:#dc3545">识别失败：'+(err.message||'未知错误')+'。请重试或改用文字输入</p>';
+    $('ocr-result').innerHTML='<p style="color:#dc3545">识别失败：'+(err.message||'未知错误')+'</p><p style="color:#888;font-size:13px">请尝试刷新页面重试，或改用文字输入</p>';
   }
 }
 
