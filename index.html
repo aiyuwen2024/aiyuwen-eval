@@ -6,7 +6,7 @@
 <title>AI语文评价系统</title>
 <script src="https://cdn.jsdelivr.net/npm/hydrogen-js-sdk@3.0.2/dist/Bmob-3.0.2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -311,12 +311,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       <div id="input-ocr" style="display:none">
         <div class="form-group"><input type="file" accept="image/*" id="ocr-image" capture="environment" onchange="processOCR(this)"></div>
         <div id="ocr-preview" style="display:none;margin:10px 0;text-align:center"><img id="ocr-preview-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #ddd"></div>
-        <div id="ocr-result"></div>
-        <div id="ocr-loading" class="loading" style="display:none"><div class="spinner"></div><p id="ocr-status">正在识别文字...</p></div>
-        <div id="ocr-manual" style="display:none;margin-top:10px">
-          <p style="color:#888;font-size:13px;margin-bottom:8px">📷 参考上方图片，手动输入文字：</p>
-          <textarea id="essay-content-ocr" placeholder="请根据图片内容输入文字..." style="min-height:200px;width:100%;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px"></textarea>
-          <button class="btn" style="margin-top:8px" onclick="useOcrManualText()">✅ 使用这段文字</button>
+        <div id="ocr-wechat-guide" style="display:none;margin-top:12px">
+          <div style="background:linear-gradient(135deg,#07c160,#06ad56);color:#fff;border-radius:10px;padding:14px;margin-bottom:12px">
+            <div style="font-size:15px;font-weight:600;margin-bottom:8px">💬 微信识别文字步骤</div>
+            <div style="font-size:13px;line-height:1.8">
+              ① 长按上方图片，保存到手机相册<br>
+              ② 打开微信，把图片发给任意好友（或文件传输助手）<br>
+              ③ 长按发送的图片，点「提取文字」<br>
+              ④ 全选文字 → 复制<br>
+              ⑤ 回到本页面，粘贴到下方文本框
+            </div>
+          </div>
+          <div class="form-group">
+            <label>📋 粘贴识别的文字 <span style="color:#dc3545">*</span></label>
+            <textarea id="essay-content" placeholder="长按此处 → 粘贴微信识别的文字..." style="min-height:200px"></textarea>
+          </div>
         </div>
       </div>
       <div id="input-voice" style="display:none">
@@ -787,76 +796,17 @@ function renderCriteria(inds){
 function switchInputMode(mode){$$('#page-submit .tab').forEach(function(t){t.classList.remove('active')});event.target.classList.add('active');hide('input-text');hide('input-ocr');hide('input-voice');show('input-'+mode)}
 
 // ==================== OCR ====================
-async function processOCR(input){
+function processOCR(input){
   if(!input.files||!input.files[0])return;
   var file=input.files[0];
   // 显示图片预览
   var reader=new FileReader();
-  reader.onload=function(e){$('ocr-preview-img').src=e.target.result;show('ocr-preview')};
+  reader.onload=function(e){
+    $('ocr-preview-img').src=e.target.result;
+    show('ocr-preview');
+    show('ocr-wechat-guide');
+  };
   reader.readAsDataURL(file);
-  show('ocr-loading');hide('ocr-result');hide('ocr-manual');
-  $('ocr-status').textContent='正在识别文字，请稍候...';
-  var recognized=false;
-  // 方案1：云端OCR API
-  try{
-    $('ocr-status').textContent='☁️ 云端识别中...';
-    var fd=new FormData();
-    fd.append('file',file);
-    var ctrl=new AbortController();
-    var timer=setTimeout(function(){ctrl.abort()},30000);
-    var resp=await fetch('https://api.easyocr.org/ocr',{method:'POST',body:fd,signal:ctrl.signal});
-    clearTimeout(timer);
-    if(resp.ok){
-      var data=await resp.json();
-      if(data.words&&Array.isArray(data.words)&&data.words.length>0){
-        var text=data.words.map(function(w){return w.text}).join('\n').trim();
-        if(text){
-          recognized=true;
-          hide('ocr-loading');
-          $('ocr-result').innerHTML='<div class="form-group"><label>识别结果（可修改后提交）</label><textarea id="essay-content" style="min-height:200px">'+text.replace(/</g,'&lt;')+'</textarea></div>';
-        }
-      }
-    }
-  }catch(e){
-    console.log('云端OCR失败:',e.message);
-  }
-  // 方案2：本地Tesseract.js v5
-  if(!recognized){
-    try{
-      if(typeof Tesseract==='undefined')throw new Error('OCR引擎未加载');
-      $('ocr-status').textContent='📦 加载本地OCR引擎...';
-      var worker=await Tesseract.createWorker('chi_sim',1,{
-        logger:function(m){
-          if(m.status==='loading tesseract core')$('ocr-status').textContent='📦 加载OCR核心... ('+Math.round((m.progress||0)*100)+'%)';
-          else if(m.status==='loading language traineddata')$('ocr-status').textContent='⬇️ 下载中文语言包... ('+Math.round((m.progress||0)*100)+'%)';
-          else if(m.status==='initializing api')$('ocr-status').textContent='🔧 初始化识别...';
-          else if(m.status==='recognizing text')$('ocr-status').textContent='🔍 正在识别... ('+Math.round((m.progress||0)*100)+'%)';
-        }
-      });
-      var result=await worker.recognize(file);
-      await worker.terminate();
-      var text2=result.data.text.trim();
-      if(text2){
-        recognized=true;
-        hide('ocr-loading');
-        $('ocr-result').innerHTML='<div class="form-group"><label>识别结果（可修改后提交）</label><textarea id="essay-content" style="min-height:200px">'+text2.replace(/</g,'&lt;')+'</textarea></div>';
-      }
-    }catch(err){
-      console.log('本地OCR失败:',err.message);
-    }
-  }
-  // 如果两种方案都失败，显示手动输入
-  if(!recognized){
-    hide('ocr-loading');
-    $('ocr-result').innerHTML='<p style="color:#e67e22">自动识别未成功，请在下方手动输入文字</p><p style="color:#888;font-size:12px">提示：确保光线充足、文字清晰、手机正对文稿</p>';
-    show('ocr-manual');
-  }
-}
-function useOcrManualText(){
-  var t=$('essay-content-ocr').value.trim();
-  if(!t){toast('请先输入文字','error');return}
-  $('ocr-result').innerHTML='<div class="form-group"><label>输入内容（可修改后提交）</label><textarea id="essay-content" style="min-height:200px">'+t.replace(/</g,'&lt;')+'</textarea></div>';
-  hide('ocr-manual');
 }
 
 // ==================== 语音 ====================
