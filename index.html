@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>AI语文评价系统</title>
+<script src="https://cdn.jsdelivr.net/npm/hydrogen-js-sdk@3.0.2/dist/Bmob-3.0.2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;background:#f5f5f5;color:#333;font-size:14px;line-height:1.5}
+.container{max-width:800px;margin:0 auto;padding:10px}
+.header{background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:15px;border-radius:12px;margin-bottom:15px;text-align:center}
+.header h1{font-size:20px;margin-bottom:5px}
+.header p{font-size:12px;opacity:0.9}
+.module-tabs{display:flex;background:#fff;border-radius:10px;overflow:hidden;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1)}
+.module-tab{flex:1;padding:12px;text-align:center;cursor:pointer;border:none;background:#fff;font-size:14px;transition:all 0.3s}
+.module-tab.active{background:#667eea;color:#fff}
+.module-tab.disabled{color:#ccc;cursor:not-allowed}
+.card{background:#fff;border-radius:12px;padding:15px;margin-bottom:15px;box-shadow:0 2px 8px rgba(0,0,0,0.08)}
+.card-title{font-size:16px;font-weight:600;margin-bottom:12px;color:#333;display:flex;align-items:center;gap:8px}
+.card-title .icon{width:24px;height:24px;background:#667eea;color:#fff;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px}
+.btn{display:inline-block;padding:10px 20px;background:#667eea;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:14px;transition:all 0.3s;text-align:center}
+.btn:hover{background:#5568d3}
+.btn.secondary{background:#6c757d}
+.btn.success{background:#28a745}
+.btn.danger{background:#dc3545}
+.btn.small{padding:6px 12px;font-size:12px}
+.btn:disabled{background:#ccc;cursor:not-allowed}
+.btn-full{width:100%}
+.btn-outline{background:#fff;color:#667eea;border:1px solid #667eea}
+.btn-outline:hover{background:#667eea;color:#fff}
+.form-group{margin-bottom:15px}
+.form-group label{display:block;margin-bottom:6px;font-weight:500;color:#555;font-size:13px}
+.form-group input,.form-group textarea,.form-group select{width:100%;padding:10px 12px;border:1px solid #ddd;border-radius:8px;font-size:14px;transition:border-color 0.3s}
+.form-group input:focus,.form-group textarea:focus,.form-group select:focus{outline:none;border-color:#667eea}
+.form-group textarea{resize:vertical;min-height:80px}
+.list-item{display:flex;justify-content:space-between;align-items:center;padding:12px;border-bottom:1px solid #eee;cursor:pointer;transition:background 0.2s}
+.list-item:last-child{border-bottom:none}
+.list-item:hover{background:#f8f9fa}
+.list-item .info{flex:1}
+.list-item .title{font-weight:500;color:#333}
+.list-item .meta{font-size:12px;color:#888;margin-top:3px}
+.badge{padding:4px 10px;border-radius:12px;font-size:11px;font-weight:500;display:inline-block}
+.badge-primary{background:#e8eaff;color:#667eea}
+.badge-success{background:#d4edda;color:#28a745}
+.badge-warning{background:#fff3cd;color:#856404}
+.badge-danger{background:#f8d7da;color:#dc3545}
+.badge-info{background:#d1ecf1;color:#0c5460}
+.modal{display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;padding:15px}
+.modal.show{display:flex}
+.modal-content{background:#fff;border-radius:12px;width:100%;max-width:600px;max-height:90vh;overflow-y:auto;padding:20px}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px}
+.modal-header h3{margin:0;font-size:16px}
+.modal-close{background:none;border:none;font-size:24px;cursor:pointer;color:#888}
+.tabs{display:flex;background:#f0f0f0;border-radius:8px;margin-bottom:15px}
+.tab{flex:1;padding:8px;text-align:center;cursor:pointer;border:none;background:transparent;font-size:13px;border-radius:8px;transition:all 0.3s}
+.tab.active{background:#667eea;color:#fff}
+.empty-state{text-align:center;padding:40px 20px;color:#888}
+.empty-state .icon{font-size:48px;margin-bottom:10px}
+.empty-state p{font-size:14px}
+.score-display{text-align:center;padding:20px}
+.score-big{font-size:48px;font-weight:700;color:#667eea}
+.score-label{font-size:14px;color:#888;margin-top:5px}
+.status{position:fixed;top:20px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:10px 20px;border-radius:25px;font-size:13px;z-index:2000;opacity:0;transition:opacity 0.3s}
+.status.show{opacity:1}
+.status.success{background:#28a745}
+.status.error{background:#dc3545}
+.page{display:none}
+.page.show{display:block;padding-bottom:30px}
+.score-slider{display:flex;align-items:center;gap:10px}
+.score-slider input[type="range"]{flex:1;-webkit-appearance:none;height:6px;border-radius:3px;background:#ddd}
+.score-slider input[type="range"]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;height:20px;border-radius:50%;background:#667eea;cursor:pointer}
+.score-slider span{width:40px;text-align:center;font-weight:600;color:#667eea}
+.import-area{min-height:100px;border:2px dashed #ddd;border-radius:8px;padding:15px;margin-top:10px}
+.loading{display:none;text-align:center;padding:30px}
+.loading.show{display:block}
+.spinner{width:40px;height:40px;border:3px solid #f3f3f3;border-top:3px solid #667eea;border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 10px}
+@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.3s ease-out}
+
+/* 三级指标树 */
+.ind-tree{margin-top:10px}
+.ind-l1{background:#f0f2ff;border-radius:10px;padding:12px;margin-bottom:10px;border-left:4px solid #667eea}
+.ind-l1-header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ind-l1-header input[type="text"]{font-weight:600;font-size:15px;border:none;background:transparent;flex:1;min-width:60px;padding:2px}
+.ind-l1-header .wt-input{width:48px;font-size:12px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;text-align:center}
+.ind-l1-header .ind-del{color:#dc3545;cursor:pointer;padding:2px 6px;font-size:14px}
+.ind-desc{font-size:11px;color:#888;margin:4px 0 6px;line-height:1.5;padding:4px 8px;background:rgba(255,255,255,0.6);border-radius:4px}
+.ind-l1-body{margin-top:8px;padding-left:16px}
+.ind-l2{background:#f8f9fa;border-radius:8px;padding:10px;margin-bottom:8px;border-left:3px solid #a0a0ff}
+.ind-l2-header{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.ind-l2-header input[type="text"]{font-weight:500;font-size:14px;border:none;background:transparent;flex:1;min-width:50px;padding:2px}
+.ind-l2-header .wt-input{width:48px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;text-align:center}
+.ind-l2-header .ind-del{color:#dc3545;cursor:pointer;padding:2px 6px;font-size:13px}
+.ind-l2-body{margin-top:6px;padding-left:14px}
+.ind-l3{display:flex;align-items:center;gap:6px;padding:6px 10px;background:#fff;border-radius:6px;margin-bottom:5px;border:1px solid #eee;flex-wrap:wrap}
+.ind-l3 input[type="text"]{flex:1;font-size:13px;border:none;background:transparent;min-width:40px;padding:2px}
+.ind-l3 .wt-input{width:48px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;text-align:center}
+.ind-l3 .ind-del{color:#dc3545;cursor:pointer;padding:2px;font-size:12px}
+.ind-l3 .ind-tag{font-size:10px;padding:1px 6px;border-radius:8px;background:#fff3cd;color:#856404}
+.ind-add-row{display:flex;gap:6px;align-items:center;margin-top:6px;flex-wrap:wrap}
+.ind-add-row input{padding:5px 8px;border:1px solid #ddd;border-radius:6px;font-size:12px}
+.ind-add-row .btn{padding:4px 10px;font-size:11px}
+.weight-warn{font-size:11px;color:#dc3545;margin-top:4px}
+
+/* 结果页三级展示 */
+.res-l1{background:#f0f2ff;border-radius:10px;padding:12px;margin-bottom:10px;border-left:4px solid #667eea}
+.res-l1-head{display:flex;justify-content:space-between;align-items:center;font-weight:600;font-size:14px;color:#333}
+.res-l1-score{color:#667eea;font-weight:700}
+.res-l1-desc{font-size:11px;color:#888;margin:3px 0 0;line-height:1.4}
+.res-l2{background:#f8f9fa;border-radius:8px;padding:8px 10px;margin:6px 0 6px 12px;border-left:3px solid #a0a0ff}
+.res-l2-head{display:flex;justify-content:space-between;align-items:center;font-size:13px;color:#444;font-weight:500}
+.res-l2-score{color:#764ba2;font-weight:600}
+.res-l3{display:flex;justify-content:space-between;align-items:center;padding:5px 8px;margin:3px 0 3px 20px;font-size:12px;color:#666;border-bottom:1px dashed #eee;flex-wrap:wrap}
+.res-l3:last-child{border-bottom:none}
+.res-l3-pct{color:#888;font-size:11px}
+.res-l3-score{color:#667eea;font-weight:600}
+.res-l3-desc{font-size:10px;color:#999;width:100%;margin-top:2px;line-height:1.3}
+.res-l3-tag{font-size:10px;padding:1px 6px;border-radius:8px;background:#fff3cd;color:#856404;margin-left:4px}
+.res-comment-block{margin:6px 0 6px 12px;padding:8px 10px;background:#fffbe6;border-radius:6px;border-left:3px solid #ffc107;font-size:12px;color:#666;line-height:1.6}
+@media(min-width:600px){
+  .container{padding:20px}
+  .card{padding:20px}
+  .header{padding:20px}
+  .header h1{font-size:24px}
+}
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- 配置页面 -->
+  <div id="page-config" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">⚙</span>Bmob 配置</div>
+      <div class="form-group"><label>连接方式</label><div class="tabs"><button class="tab active" onclick="setAuthMode('simple')">简单认证</button><button class="tab" onclick="setAuthMode('secret')">加密认证</button></div></div>
+      <div id="auth-simple">
+        <div class="form-group"><label>Application ID <span style="color:#dc3545">*</span></label><input type="text" id="config-appid" placeholder="请输入 Application ID"></div>
+        <div class="form-group"><label>REST API Key</label><input type="text" id="config-restkey" placeholder="请输入 REST API Key"></div>
+      </div>
+      <div id="auth-secret" style="display:none">
+        <div class="form-group"><label>Secret Key <span style="color:#dc3545">*</span></label><input type="password" id="config-secret" placeholder="请输入 Secret Key"><small style="color:#888;font-size:11px">请确认不是 Application ID</small></div>
+        <div class="form-group"><label>API 安全码 <span style="color:#dc3545">*</span></label><input type="password" id="config-api-code" placeholder="请输入 API 安全码"></div>
+      </div>
+      <div id="config-hint" style="display:none" class="form-group"><div style="background:#fff3cd;padding:10px;border-radius:8px;font-size:12px;color:#856404"><strong>💡 提示：</strong><span id="hint-text"></span></div></div>
+      <div class="form-group"><label>教师密码</label><input type="password" id="config-password" placeholder="默认: 123456" value="123456"></div>
+      <button class="btn btn-full" onclick="saveConfig()">保存配置并连接</button>
+      <div style="margin-top:15px;padding:15px;background:#e8eaff;border-radius:8px;font-size:12px;color:#555"><strong>🚀 Netlify 部署：</strong>将本 HTML 文件上传到 app.netlify.com/drop 即可</div>
+      <button class="btn btn-full secondary" style="margin-top:15px" onclick="useOfflineMode()">使用离线模式（不连接云端）</button>
+    </div>
+    <div id="diagnosis-result" class="card" style="display:none"><div class="card-title"><span class="icon">🔍</span>连接诊断</div><div id="diagnosis-content"></div></div>
+  </div>
+
+  <!-- 主页面 -->
+  <div id="page-main" class="page">
+    <div class="header"><h1>📚 AI语文评价系统</h1><p>中职语文教学评价工具</p></div>
+    <div class="module-tabs">
+      <button class="module-tab active" onclick="switchModule('essay')" id="tab-essay">📝 议论文写作评价</button>
+      <button class="module-tab disabled" id="tab-classical">📖 文言文朗读评价<small style="display:block;font-size:10px;margin-top:2px">下期实现</small></button>
+    </div>
+    <div id="view-teacher" style="display:none">
+      <div class="card" style="cursor:pointer" onclick="if(!isTeacher)checkTeacherPassword()">
+        <div class="card-title"><span class="icon">👨‍🏫</span>教师控制台<button class="btn small secondary" style="margin-left:auto" onclick="event.stopPropagation();if(isTeacher)logoutTeacher()">退出</button></div>
+        <div id="teacher-content"><p style="color:#888;text-align:center;padding:10px">点击进入教师控制台</p></div>
+      </div>
+      <div id="teacher-actions" style="display:none">
+        <button class="btn btn-full" onclick="showPage('create-task')">➕ 新建评价任务</button>
+        <button class="btn btn-full secondary" style="margin-top:10px" onclick="showPage('comment-library')">📚 评语库管理</button>
+      </div>
+    </div>
+    <div id="view-student">
+      <div class="card"><div class="card-title"><span class="icon">👨‍🎓</span>选择评价任务</div><div id="student-tasks"><div class="empty-state"><div class="icon">📭</div><p>暂无可用任务</p></div></div></div>
+    </div>
+  </div>
+
+  <!-- 新建/编辑任务页面 -->
+  <div id="page-create-task" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">📝</span><span id="create-task-title">新建评价任务</span><button class="btn small secondary" style="margin-left:auto" onclick="showPage('main')">返回</button></div>
+      <div class="form-group"><label>任务名称 <span style="color:#dc3545">*</span></label><input type="text" id="task-name" placeholder="如：期中考试议论文写作"></div>
+      <div class="form-group"><label>截止时间</label><input type="datetime-local" id="task-deadline"></div>
+      <div class="form-group">
+        <label>评价指标（三级体系）</label>
+        <p style="font-size:12px;color:#888;margin-bottom:8px">一级→二级→三级（AI在三级评分），每级可设权重%，可修改名称和权重</p>
+        <div id="indicators-tree" class="ind-tree"></div>
+        <div style="margin-top:10px">
+          <button class="btn small" onclick="addL1()">➕ 添加一级指标</button>
+          <button class="btn small btn-outline" onclick="loadDefaults()" style="margin-left:6px">📋 加载类比微写作标准</button>
+        </div>
+        <div class="import-area" style="margin-top:12px">
+          <p style="color:#888;text-align:center;font-size:12px">💡 批量导入（格式：层级:名称,权重%）</p>
+          <textarea id="batch-indicators" placeholder="一级:论证能力,40&#10;二级:论点,50&#10;三级:论点明确,60&#10;三级:论点深刻,40" style="border:none;width:100%;min-height:80px;resize:none;font-size:12px"></textarea>
+          <button class="btn small" style="margin-top:5px" onclick="batchImport()">导入</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>等级分数线</label>
+        <div style="display:flex;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:120px"><small>优秀 ≥</small><input type="number" id="threshold-excellent" value="85"></div>
+          <div style="flex:1;min-width:120px"><small>良好 ≥</small><input type="number" id="threshold-good" value="70"></div>
+          <div style="flex:1;min-width:120px"><small>合格 ≥</small><input type="number" id="threshold-qualified" value="60"></div>
+        </div>
+      </div>
+      <button class="btn btn-full" onclick="createTask()">创建任务</button>
+    </div>
+  </div>
+
+  <!-- 评语库页面 -->
+  <div id="page-comment-library" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">📚</span>评语库管理<button class="btn small secondary" style="margin-left:auto" onclick="selectTaskForComments()">选择任务</button></div>
+      <p style="color:#888;font-size:12px;margin-bottom:15px">当前任务：<span id="current-comment-task">未选择</span></p>
+      <div id="comment-library-content"><div class="empty-state"><div class="icon">💬</div><p>请先选择一个评价任务</p></div></div>
+    </div>
+  </div>
+
+  <!-- 任务详情 -->
+  <div id="page-task-detail" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">📋</span><span id="detail-task-name">任务详情</span><button class="btn small secondary" style="margin-left:auto" onclick="showPage('main')">返回</button></div>
+      <div class="tabs" style="margin-bottom:15px">
+        <button class="tab active" onclick="switchDetailTab('submissions')">学生提交</button>
+        <button class="tab" onclick="switchDetailTab('indicators')">指标设置</button>
+        <button class="tab" onclick="switchDetailTab('share')">📱 分享</button>
+        <button class="tab" onclick="switchDetailTab('statistics')">统计</button>
+        <button class="tab" onclick="switchDetailTab('export')">导出</button>
+      </div>
+      <div id="tab-submissions"><div id="submissions-list"><div class="empty-state"><div class="icon">📝</div><p>暂无学生提交</p></div></div></div>
+      <div id="tab-indicators" style="display:none">
+        <p style="font-size:12px;color:#888;margin-bottom:10px">修改指标后点击保存，已有提交的评分不受影响，仅影响新提交</p>
+        <button class="btn btn-full" onclick="upgradeIndicators()" style="margin-bottom:10px;background:#28a745">🔄 一键更新为最新类比微写作标准（3类比制·1相似点达标）</button>
+        <div id="task-indicators-view"></div>
+        <button class="btn btn-full" onclick="saveTaskIndicators()" style="margin-top:10px">保存指标修改</button>
+      </div>
+      <div id="tab-share" style="display:none">
+        <div style="padding:15px;background:linear-gradient(135deg,#667eea20,#764ba220);border-radius:12px;margin-bottom:15px;border:1px solid #667eea30">
+          <h4 style="margin-bottom:8px;color:#3f51b5">🚀 部署上线</h4>
+          <p style="font-size:12px;color:#555;line-height:1.8">只需<strong>2步</strong>，学生就能在手机上访问：</p>
+          <div style="background:#fff;border-radius:8px;padding:12px;margin:10px 0;font-size:13px;line-height:2">
+            <div style="color:#667eea;font-weight:600">第1步：点击按钮下载文件</div>
+            <button class="btn btn-full" onclick="downloadAndDeploy()" style="margin-top:6px;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;font-size:15px;padding:12px">📥 下载文件并打开部署页面</button>
+            <div style="color:#667eea;font-weight:600;margin-top:12px">第2步：把下载的文件拖到打开的页面中</div>
+            <p style="font-size:11px;color:#888">页面会自动打开，把刚下载的"AI语文评价系统.html"拖进去即可，几秒后获得在线链接</p>
+          </div>
+          <div id="deploy-status" style="margin-top:10px;font-size:13px"></div>
+        </div>
+        <div style="margin-bottom:15px">
+          <label style="font-size:13px;font-weight:500;color:#555">填入部署后的网址，生成二维码</label>
+          <div style="display:flex;gap:8px;margin-top:5px">
+            <input type="url" id="share-url" placeholder="https://xxx.netlify.app" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px">
+            <button class="btn" onclick="generateQR()">生成二维码</button>
+          </div>
+        </div>
+        <div id="qr-code-area" style="text-align:center;display:none">
+          <div style="display:inline-block;padding:15px;background:#fff;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.1)">
+            <img id="qr-code-img" style="width:200px;height:200px"><br>
+            <p style="font-size:11px;color:#888;margin-top:8px">学生扫码即可打开</p>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+            <button class="btn small" onclick="copyShareURL()">📋 复制链接</button>
+            <button class="btn small" onclick="downloadHTML()">📥 重新下载HTML</button>
+          </div>
+          <p id="deploy-url-display" style="margin-top:8px;font-size:12px;color:#667eea;word-break:break-all"></p>
+        </div>
+        <details style="margin-top:15px">
+          <summary style="font-size:12px;color:#999;cursor:pointer;padding:8px">备用：CodeSandbox一键上线</summary>
+          <div style="padding:12px;background:#f5f5f5;border-radius:8px;margin-top:8px;font-size:12px;color:#555;line-height:1.8">
+            <p>点击下方按钮可直接生成在线链接，但国内访问可能不稳定：</p>
+            <button class="btn small" onclick="deployToCodeSandbox()" id="csb-deploy-btn" style="margin-top:8px">🚀 CodeSandbox一键上线</button>
+            <div id="csb-status" style="margin-top:8px;font-size:12px;color:#888"></div>
+          </div>
+        </details>
+        <div style="margin-top:15px;padding:15px;background:#fff3e0;border-radius:8px">
+          <p style="font-size:12px;color:#e65100"><strong>⚠️ 多设备同步需配置Bmob</strong></p>
+          <p style="font-size:11px;color:#888;line-height:1.6">未配置Bmob时，学生和教师各自数据独立。配置Bmob后，学生提交的数据能实时同步到教师端。</p>
+        </div>
+      </div>
+      <div id="tab-statistics" style="display:none">
+        <div style="position:relative;height:300px;margin:15px 0"><canvas id="radar-chart"></canvas></div>
+        <div id="grade-distribution" style="margin-top:20px"></div>
+        <div id="avg-scores" style="margin-top:15px"></div>
+      </div>
+      <div id="tab-export" style="display:none">
+        <button class="btn btn-full" onclick="exportExcel()">📊 导出为 Excel</button>
+        <button class="btn btn-full secondary" style="margin-top:10px" onclick="exportWord()">📄 导出为 Word</button>
+        <button class="btn btn-full danger" style="margin-top:20px" onclick="deleteTask()">🗑 删除此任务</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 学生提交页面 -->
+  <div id="page-submit" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">✍</span>提交作品<button class="btn small secondary" style="margin-left:auto" onclick="showPage('main')">返回</button></div>
+      <div id="submit-task-info" style="padding:10px;background:#f0f0f0;border-radius:8px;margin-bottom:15px"><strong id="submit-task-name"></strong><p style="font-size:12px;color:#666;margin-top:5px" id="submit-task-deadline"></p></div>
+      <div id="submit-criteria" style="display:none;margin-bottom:15px"><div style="padding:10px 12px;background:#e8eaff;border-radius:8px 8px 0 0;cursor:pointer;display:flex;justify-content:space-between;align-items:center" onclick="var d=this.nextElementSibling;d.style.display=d.style.display==='none'?'block':'none';this.querySelector('span').textContent=d.style.display==='none'?'点击展开 ▼':'点击收起 ▲'"><strong>📋 评价标准</strong><span style="font-size:12px;color:#888">点击展开 ▼</span></div><div id="criteria-detail" style="display:none;padding:10px 12px;background:#f8f9ff;border-radius:0 0 8px 8px;border:1px solid #e8eaff;border-top:none;max-height:50vh;overflow-y:auto"></div></div>
+      <div class="form-group"><label>姓名/学号 <span style="color:#dc3545">*</span></label><input type="text" id="student-name" placeholder="请输入姓名或学号"></div>
+      <div class="form-group">
+        <label>选择输入方式</label>
+        <div class="tabs">
+          <button class="tab active" onclick="switchInputMode('text')">📝 文字输入</button>
+          <button class="tab" onclick="switchInputMode('ocr')">📷 拍照识别</button>
+          <button class="tab" onclick="switchInputMode('voice')">🎤 语音输入</button>
+        </div>
+      </div>
+      <div id="input-text"><div class="form-group"><label>议论文内容 <span style="color:#dc3545">*</span></label><textarea id="essay-content" placeholder="请输入你的议论文..." style="min-height:200px"></textarea></div></div>
+      <div id="input-ocr" style="display:none">
+        <div class="form-group"><input type="file" accept="image/*" id="ocr-image" capture="environment" onchange="processOCR(this)"></div>
+        <div id="ocr-result"></div>
+        <div id="ocr-loading" class="loading"><div class="spinner"></div><p>正在识别文字...</p></div>
+      </div>
+      <div id="input-voice" style="display:none">
+        <button class="btn btn-full" id="voice-btn" onclick="toggleVoice()">🎤 点击开始录音</button>
+        <div id="voice-text" style="margin-top:15px;padding:15px;background:#f8f9fa;border-radius:8px;min-height:100px"></div>
+      </div>
+      <button class="btn btn-full success" style="margin-top:20px" onclick="submitWork()">提交并获取评价</button>
+    </div>
+  </div>
+
+  <!-- 评价结果页面 -->
+  <div id="page-result" class="page">
+    <div class="card fade-in">
+      <div class="card-title"><span class="icon">📊</span>评价结果<button class="btn small secondary" style="margin-left:auto" onclick="showPage('main');loadStudentTasks()">返回首页</button></div>
+      <div class="score-display">
+        <div class="score-big" id="result-total-score">0</div>
+        <div class="score-label">总分（满分100）</div>
+        <span class="badge badge-success" id="result-grade" style="margin-top:10px;font-size:14px;padding:6px 16px">优秀</span>
+      </div>
+      <div id="result-detail" style="margin-top:15px"></div>
+      <div style="margin-top:20px;padding:15px;background:#f0f0f0;border-radius:8px">
+        <h4 style="margin-bottom:10px">📝 总评语</h4>
+        <p id="result-comment" style="color:#555;line-height:1.8"></p>
+      </div>
+      <div id="result-sub-comments" style="margin-top:15px"></div>
+      <div style="margin-top:15px;padding:15px;background:#e8eaff;border-radius:8px">
+        <h4 style="margin-bottom:10px">💡 AI分析建议</h4>
+        <p id="result-advice" style="color:#555;line-height:1.8;font-size:13px"></p>
+      </div>
+      <div id="result-diagnosis" style="margin-top:15px"></div>
+      <div style="margin-top:20px;display:flex;gap:10px">
+        <button class="btn" style="flex:1" onclick="showPage('submit')">✍ 再提交一份</button>
+        <button class="btn secondary" style="flex:1" onclick="showPage('main');loadStudentTasks()">返回首页</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 评分编辑弹窗 -->
+  <div id="modal-edit-score" class="modal">
+    <div class="modal-content">
+      <div class="modal-header"><h3>编辑评分</h3><button class="modal-close" onclick="closeModal('modal-edit-score')">&times;</button></div>
+      <div id="edit-score-content"></div>
+      <div class="form-group"><label>评语</label><textarea id="edit-comment" placeholder="可选，修改评语"></textarea></div>
+      <button class="btn btn-full" onclick="saveEditScore()">保存</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="status"></div>
+
+<script>
+// ==================== 自动清理部署环境注入 ====================
+(function(){
+  function cleanHost(){
+    // 移除CodeSandbox注入的脚本
+    document.querySelectorAll('script[src*="codesandbox.io"]').forEach(function(s){s.remove()});
+    // 移除可能注入的banner iframe
+    document.querySelectorAll('iframe[id^="sb__"],iframe[srcdoc*="phishing"]').forEach(function(f){f.remove()});
+    // 移除注入脚本的副作用
+    document.querySelectorAll('style').forEach(function(s){
+      if(s.textContent.indexOf('position:fixed')>-1&&s.textContent.indexOf('z-index:999')>-1)s.remove();
+    });
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',cleanHost);
+  else cleanHost();
+  setTimeout(cleanHost,500);
+  setTimeout(cleanHost,2000);
+})();
+// ==================== 全局变量 ====================
+var isTeacher=false,currentTask=null,currentModule='essay',authMode='simple',offlineMode=false;
+var currentSubmissions=[],currentIndicators=[],radarChart=null;
+var recognition=null,isRecording=false,currentEditSubmission=null;
+var editingTaskId=null; // 正在编辑指标的任务ID
+
+// ==================== 工具函数 ====================
+function $(id){return document.getElementById(id)}
+function $$(sel){return document.querySelectorAll(sel)}
+function show(id){$(id).style.display='block'}
+function hide(id){$(id).style.display='none'}
+function toast(msg,type){var t=$('toast');t.textContent=msg;t.className='status show'+(type?' '+type:'');setTimeout(function(){t.className='status'},2500)}
+function formatDate(d){if(!d)return'无';var date=new Date(d);return date.getFullYear()+'-'+String(date.getMonth()+1).padStart(2,'0')+'-'+String(date.getDate()).padStart(2,'0')+' '+String(date.getHours()).padStart(2,'0')+':'+String(date.getMinutes()).padStart(2,'0')}
+function genId(){return 'id_'+Date.now()+'_'+Math.random().toString(36).substr(2,6)}
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+
+// ==================== 三级指标计算 ====================
+function sumWeight(arr){var s=0;arr.forEach(function(a){s+=(a.weight||0)});return s}
+function calcL3Max(l1,l2,l3){return 100*(l1.weight||0)/100*(l2.weight||0)/100*(l3.weight||0)/100}
+function calcL2Max(l1,l2){var s=0;if(l2.children)l2.children.forEach(function(l3){s+=calcL3Max(l1,l2,l3)});return s}
+function calcL1Max(l1){var s=0;if(l1.children)l1.children.forEach(function(l2){s+=calcL2Max(l1,l2)});return s}
+function calcL2Score(sub,l1,l2){var scores=sub.scores||{},s=0;if(l2.children)l2.children.forEach(function(l3){s+=(scores[l3.id||l3.name]||0)});return s}
+function calcL1Score(sub,l1){var s=0;if(l1.children)l1.children.forEach(function(l2){s+=calcL2Score(sub,l1,l2)});return s}
+function calcL2ScoreFromScores(scores,l1,l2){var s=0;if(l2.children)l2.children.forEach(function(l3){s+=(scores[l3.id||l3.name]||0)});return s}
+
+// 向后兼容旧格式
+function migrateOld(inds){
+  if(!inds||inds.length===0)return[];
+  if(inds[0]&&inds[0].children!==undefined)return inds;
+  var total=0;inds.forEach(function(i){total+=(i.score||0)});if(total===0)total=100;
+  return inds.map(function(i){return {id:genId(),name:i.name,weight:Math.round((i.score||0)*100/total),children:[{id:genId(),name:i.name,weight:100,children:[{id:genId(),name:i.name,weight:100}]}]}});
+}
+
+// ==================== 页面控制 ====================
+function showPage(page){$$('.page').forEach(function(p){p.classList.remove('show')});var el=$('page-'+page);if(el)el.classList.add('show')}
+function switchModule(mod){if(mod==='classical'){toast('文言文朗读评价模块正在开发中','warning');return}currentModule=mod;$$('.module-tab').forEach(function(t){t.classList.remove('active')});$('tab-'+mod).classList.add('active')}
+function switchDetailTab(tab){$$('#page-task-detail .tab').forEach(function(t){t.classList.remove('active')});event.target.classList.add('active');hide('tab-submissions');hide('tab-indicators');hide('tab-share');hide('tab-statistics');hide('tab-export');show('tab-'+tab);if(tab==='statistics')loadStatistics();if(tab==='indicators')loadTaskIndicators()}
+
+// ==================== 配置管理 ====================
+function setAuthMode(mode){authMode=mode;$$('#page-config .tabs .tab').forEach(function(t){t.classList.remove('active')});event.target.classList.add('active');hide('auth-simple');hide('auth-secret');if(mode==='simple')show('auth-simple');else show('auth-secret')}
+function checkSecretKey(key){if(key.length===32){$('hint-text').innerHTML='你可能填了 Application ID。Secret Key 通常更长，请查看Bmob后台「应用密钥」第3行';show('config-hint');return true}hide('config-hint');return false}
+function saveConfig(){
+  var password=$('config-password').value||'123456';
+  if(authMode==='simple'){var appId=$('config-appid').value,restKey=$('config-restkey').value;if(!appId){toast('请输入 Application ID','error');return}Bmob.initialize(appId,restKey);localStorage.setItem('bmob_config',JSON.stringify({mode:'simple',appId:appId,restKey:restKey,password:password}))}
+  else{var secret=$('config-secret').value,apiCode=$('config-api-code').value;if(!secret||!apiCode){toast('请填写完整','error');return}if(checkSecretKey(secret)){toast('Secret Key格式异常','error');return}Bmob.initialize(secret,apiCode);localStorage.setItem('bmob_config',JSON.stringify({mode:'secret',secret:secret,apiCode:apiCode,password:password}))}
+  offlineMode=false;localStorage.removeItem('offline_mode');testConnection();
+}
+function useOfflineMode(){offlineMode=true;localStorage.setItem('offline_mode','true');toast('已切换到离线模式','success');loadMainPage()}
+function testConnection(){
+  var dr=$('diagnosis-result'),dc=$('diagnosis-content');show(dr);
+  dc.innerHTML='<div class="loading show"><div class="spinner"></div><p>正在测试连接...</p></div>';
+  var query=Bmob.Query('eval_tasks');query.limit(1);
+  query.find().then(function(res){dc.innerHTML='<div style="color:#28a745;padding:15px;text-align:center"><strong>✓ 连接成功！</strong></div>';setTimeout(function(){hide(dr);loadMainPage()},1500)})
+  .catch(function(err){
+    var msg=err.message||err.error||'未知错误';
+    if(msg.indexOf('101')>-1||msg.indexOf('not found')>-1){dc.innerHTML='<div style="color:#28a745;padding:15px;text-align:center"><strong>✓ 连接成功！（首次自动建表）</strong></div>';setTimeout(function(){hide(dr);loadMainPage()},1500);return}
+    var tip=msg.indexOf('unauthorized')>-1?'确认填的是Secret Key（第3行），API安全码需在Bmob后台设置。':'可先使用离线模式体验功能';
+    dc.innerHTML='<div style="color:#dc3545;padding:15px"><strong>✗ 连接失败</strong><p style="margin-top:5px;font-size:12px">错误：'+msg+'</p><div style="margin-top:10px;padding:10px;background:#fff3cd;border-radius:8px;font-size:12px">'+tip+'</div></div>';
+  });
+}
+function logoutTeacher(){isTeacher=false;loadMainPage();toast('已退出教师模式')}
+
+// ==================== 教师端 ====================
+function checkTeacherPassword(){var pw=prompt('请输入教师密码：');if(pw===null)return false;var config=JSON.parse(localStorage.getItem('bmob_config')||'{}');if(pw===(config.password||'123456')){isTeacher=true;loadTeacherView();return true}toast('密码错误','error');return false}
+function loadTeacherView(){show('view-teacher');show('view-student');show('teacher-actions');$('teacher-content').innerHTML='<p style="color:#28a745;text-align:center;padding:10px">✅ 已登录教师模式</p>';loadTeacherTasks();loadStudentTasks()}
+function loadTeacherTasks(){if(offlineMode){renderTeacherTasks(JSON.parse(localStorage.getItem('offline_tasks')||'[]'));return}var query=Bmob.Query('eval_tasks');query.order('-createdAt');query.find().then(function(r){renderTeacherTasks(r)}).catch(function(){toast('加载任务失败','error')})}
+function renderTeacherTasks(tasks){
+  var c=$('teacher-content');if(!tasks||tasks.length===0){c.innerHTML='<p style="color:#888;text-align:center;padding:10px">暂无任务，点击"新建评价任务"创建</p>';return}
+  var html='<div class="list">';tasks.forEach(function(t){html+='<div class="list-item" onclick="openTaskDetail(\''+t.objectId+'\')"><div class="info"><div class="title">'+t.name+'</div><div class="meta">截止：'+(t.deadline?formatDate(t.deadline):'无')+'</div></div><span class="badge badge-primary">查看</span></div>'});c.innerHTML=html+'</div>';
+}
+function openTaskDetail(taskId){
+  if(offlineMode){var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');var t=tasks.find(function(x){return x.objectId===taskId});if(t){t.indicators=migrateOld(t.indicators);$('detail-task-name').textContent=t.name;currentTask=t;showPage('task-detail');loadSubmissions()}return}
+  var query=Bmob.Query('eval_tasks');query.get(taskId).then(function(t){t.indicators=migrateOld(t.indicators);$('detail-task-name').textContent=t.name;currentTask=t;showPage('task-detail');loadSubmissions()}).catch(function(){toast('加载失败','error')});
+}
+function loadSubmissions(){
+  if(offlineMode){currentSubmissions=JSON.parse(localStorage.getItem('offline_submissions')||'[]').filter(function(s){return s.task_id===currentTask.objectId});renderSubmissions(currentSubmissions);return}
+  var query=Bmob.Query('eval_submissions');query.equalTo('task_id','==',currentTask.objectId);query.find().then(function(r){currentSubmissions=r;renderSubmissions(r)}).catch(function(){toast('加载失败','error')});
+}
+function renderSubmissions(subs){
+  var c=$('submissions-list');if(!subs||subs.length===0){c.innerHTML='<div class="empty-state"><div class="icon">📝</div><p>暂无学生提交</p></div>';return}
+  var html='';subs.forEach(function(s){var gc=s.grade==='优秀'?'success':s.grade==='良好'?'info':s.grade==='合格'?'warning':'danger';html+='<div class="list-item" onclick="editSubmission(\''+s.objectId+'\')"><div class="info"><div class="title">'+s.student_name+'</div><div class="meta">总分：'+s.total_score+'</div></div><span class="badge badge-'+gc+'">'+s.grade+'</span></div>'});c.innerHTML=html;
+}
+function editSubmission(subId){
+  currentEditSubmission=currentSubmissions.find(function(s){return s.objectId===subId});if(!currentEditSubmission){toast('未找到记录','error');return}
+  var indicators=currentTask.indicators||[],scores=currentEditSubmission.scores||{};
+  var html='<div class="form-group"><label>学生：'+currentEditSubmission.student_name+'</label></div>';
+  indicators.forEach(function(l1){
+    html+='<div style="font-weight:600;margin:10px 0 5px;color:#333">'+l1.name+'（满分'+calcL1Max(l1).toFixed(1)+'）</div>';
+    if(l1.children)l1.children.forEach(function(l2){
+      html+='<div style="font-weight:500;margin:6px 0 3px;padding-left:12px;font-size:13px;color:#555">'+l2.name+'</div>';
+      if(l2.children)l2.children.forEach(function(l3){
+        var key=l3.id||l3.name,maxS=calcL3Max(l1,l2,l3),val=scores[key]||0;
+        var tag=l3.tag?'<span class="res-l3-tag">'+l3.tag+'</span>':'';
+        html+='<div style="padding-left:24px;margin-bottom:4px"><div style="font-size:12px;color:#666;margin-bottom:2px">'+l3.name+tag+'（满分'+maxS.toFixed(1)+'）</div><div class="score-slider"><input type="range" min="0" max="'+Math.round(maxS*10)+'" step="1" value="'+Math.round(val*10)+'" oninput="$(\'sv-'+key+'\').textContent=(this.value/10).toFixed(1)" id="score-'+key+'"><span id="sv-'+key+'">'+val.toFixed(1)+'</span></div></div>';
+      });
+    });
+  });
+  html+='<div class="form-group" style="margin-top:15px"><label>总分：<strong id="edit-total">'+currentEditSubmission.total_score+'</strong></label></div>';
+  $('edit-score-content').innerHTML=html;$('edit-comment').value=currentEditSubmission.comment||'';
+  setTimeout(function(){$$('[id^="score-"]').forEach(function(inp){if(inp.type==='range')inp.addEventListener('change',updateEditTotal)})},100);
+  $('modal-edit-score').classList.add('show');
+}
+function updateEditTotal(){var total=0;$$('[id^="score-"]').forEach(function(inp){if(inp.type==='range')total+=parseFloat(inp.value)/10});$('edit-total').textContent=total.toFixed(1)}
+function saveEditScore(){
+  var scores={},indicators=currentTask.indicators||[];
+  indicators.forEach(function(l1){if(l1.children)l1.children.forEach(function(l2){if(l2.children)l2.children.forEach(function(l3){var key=l3.id||l3.name,el=$('score-'+key);if(el)scores[key]=parseFloat(el.value)/10})})});
+  var total=0;for(var k in scores)total+=scores[k];total=Math.round(total*10)/10;
+  var grade=getGrade(total),comment=$('edit-comment').value||currentEditSubmission.comment;
+  if(offlineMode){var subs=JSON.parse(localStorage.getItem('offline_submissions')||'[]');var idx=subs.findIndex(function(s){return s.objectId===currentEditSubmission.objectId});if(idx>-1){subs[idx].scores=scores;subs[idx].total_score=total;subs[idx].grade=grade;subs[idx].comment=comment;localStorage.setItem('offline_submissions',JSON.stringify(subs))}closeModal('modal-edit-score');loadSubmissions();toast('保存成功','success');return}
+  var query=Bmob.Query('eval_submissions');query.get(currentEditSubmission.objectId).then(function(sub){sub.set('scores',scores);sub.set('total_score',total);sub.set('grade',grade);sub.set('comment',comment);sub.save().then(function(){closeModal('modal-edit-score');loadSubmissions();toast('保存成功','success')})}).catch(function(){toast('保存失败','error')});
+}
+function getGrade(score){var t=currentTask.grade_thresholds||{excellent:85,good:70,qualified:60};if(score>=t.excellent)return'优秀';if(score>=t.good)return'良好';if(score>=t.qualified)return'合格';return'待努力'}
+
+// ==================== 任务指标编辑 ====================
+function loadTaskIndicators(){
+  if(!currentTask)return;
+  currentIndicators=JSON.parse(JSON.stringify(currentTask.indicators||[]));
+  $('task-indicators-view').innerHTML='';
+  renderTree($('task-indicators-view'));
+  editingTaskId=currentTask.objectId;
+}
+function upgradeIndicators(){
+  if(!currentTask){toast('请先打开一个任务','error');return}
+  if(!confirm('将替换当前任务的指标为最新类比微写作标准（3类比制·1相似点达标），确定？'))return;
+  loadDefaults();
+  currentTask.indicators=JSON.parse(JSON.stringify(currentIndicators));
+  renderTree($('task-indicators-view'));
+  saveTaskIndicators();
+}
+function saveTaskIndicators(){
+  if(!currentTask||currentIndicators.length===0){toast('没有可保存的指标','error');return}
+  currentTask.indicators=JSON.parse(JSON.stringify(currentIndicators));
+  if(offlineMode){
+    var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');
+    var idx=tasks.findIndex(function(t){return t.objectId===currentTask.objectId});
+    if(idx>-1){tasks[idx].indicators=currentTask.indicators;localStorage.setItem('offline_tasks',JSON.stringify(tasks))}
+    toast('指标已保存','success');return;
+  }
+  var query=Bmob.Query('eval_tasks');query.get(currentTask.objectId).then(function(t){t.set('indicators',currentTask.indicators);t.save().then(function(){toast('指标已保存','success')}).catch(function(){toast('保存失败','error')})}).catch(function(){toast('保存失败','error')});
+}
+
+// ==================== 三级指标编辑器 ====================
+function loadDefaults(){
+  currentIndicators=[
+    {id:genId(),name:'要素完备',weight:45,desc:'评价焦点：类比框架的搭建。核心是观点明确+给出比方，连接词只是辅助标签。',children:[
+      {id:genId(),name:'核心观点明确',weight:18,desc:'开头或结尾是否有明确的观点陈述句',children:[
+        {id:genId(),name:'观点句清晰呈现',weight:100,desc:'开头或结尾有明确的观点陈述句，不模棱两可。'}
+      ]},
+      {id:genId(),name:'喻体数量达标',weight:62,desc:'是否围绕观点提供了3个不同的喻体（最核心要素）',children:[
+        {id:genId(),name:'给出3个不同的喻体',weight:100,desc:'围绕观点，提供了3个不同的事物或现象作为类比载体（如：行路、种树、建楼，或细土、流水、顽玉等）。少一个扣5分，雷同重复不给分。'}
+      ]},
+      {id:genId(),name:'类比连接显性',weight:20,desc:'是否在类比处使用了连接词或排比结构',children:[
+        {id:genId(),name:'使用类比连接词',weight:100,desc:'类比处使用了"正如""犹如""这就好比"等连接词，或用排比句式自然衔接。此为辅助标签，非核心。'}
+      ]}
+    ]},
+    {id:genId(),name:'逻辑映射',weight:45,desc:'评价焦点：相似点的提取。这是类比微写作的灵魂。只要能用一句话点出相似点，哪怕很浅显，就必须给高分。',children:[
+      {id:genId(),name:'相似点显性化',weight:71,desc:'是否明确写出相似点（1个即可，全局总结更佳）',children:[
+        {id:genId(),name:'明确点出相似点',weight:100,desc:'写出本体与喻体"何处相似"即可得分，1个相似点足够（如"都需要积累"，或全局"自然之理如此，亦是如此"）。多个相似点更好，但1个即为达标。'}
+      ]},
+      {id:genId(),name:'相似点成立',weight:29,desc:'提取的相似点是否合理',children:[
+        {id:genId(),name:'相似点符合常理',weight:100,desc:'提取的相似点符合客观生活常理，非牵强附会或强加因果。'}
+      ]}
+    ]},
+    {id:genId(),name:'语言表达',weight:10,desc:'评价焦点：语意传达的通顺度。微写作只求清晰达意，绝不以文采苛求。',children:[
+      {id:genId(),name:'语句规范',weight:100,desc:'语言是否简练通顺',children:[
+        {id:genId(),name:'表达简练通顺',weight:100,desc:'语言简练，无严重语病，不影响对类比逻辑的理解。'}
+      ]}
+    ]}
+  ];
+  renderTree();$('threshold-excellent').value=85;$('threshold-good').value=70;$('threshold-qualified').value=60;
+  toast('已加载百字类比微写作评价标准','success');
+}
+function addL1(){currentIndicators.push({id:genId(),name:'新指标',weight:20,desc:'',children:[]});renderTree()}
+function addL2(l1id){var l1=currentIndicators.find(function(x){return x.id===l1id});if(!l1)return;if(!l1.children)l1.children=[];l1.children.push({id:genId(),name:'新子指标',weight:50,desc:'',children:[]});renderTree()}
+function addL3(l1id,l2id){var l1=currentIndicators.find(function(x){return x.id===l1id});if(!l1)return;var l2=l1.children.find(function(x){return x.id===l2id});if(!l2)return;if(!l2.children)l2.children=[];l2.children.push({id:genId(),name:'新评分项',weight:50,desc:''});renderTree()}
+function rmL1(id){currentIndicators=currentIndicators.filter(function(x){return x.id!==id});renderTree()}
+function rmL2(l1id,l2id){var l1=currentIndicators.find(function(x){return x.id===l1id});if(l1)l1.children=l1.children.filter(function(x){return x.id!==l2id});renderTree()}
+function rmL3(l1id,l2id,l3id){var l1=currentIndicators.find(function(x){return x.id===l1id});if(!l1)return;var l2=l1.children.find(function(x){return x.id===l2id});if(l2)l2.children=l2.children.filter(function(x){return x.id!==l3id});renderTree()}
+
+function renderTree(container){
+  container=container||$('indicators-tree');
+  if(currentIndicators.length===0){container.innerHTML='<p style="color:#888;text-align:center;font-size:13px;padding:15px">暂无指标，请添加或点击"加载类比微写作标准"</p>';return}
+  var html='',l1s=sumWeight(currentIndicators);
+  currentIndicators.forEach(function(l1){
+    html+='<div class="ind-l1"><div class="ind-l1-header">';
+    html+='<input type="text" value="'+escHtml(l1.name)+'" onchange="currentIndicators.find(function(x){return x.id===\''+l1.id+'\'}).name=this.value" onclick="event.stopPropagation()">';
+    html+='<input class="wt-input" type="number" value="'+l1.weight+'" onchange="currentIndicators.find(function(x){return x.id===\''+l1.id+'\'}).weight=parseFloat(this.value)||0;renderTree()" onclick="event.stopPropagation()">%';
+    html+='<span class="ind-del" onclick="rmL1(\''+l1.id+'\')">✕</span></div>';
+    if(l1.desc)html+='<div class="ind-desc">'+escHtml(l1.desc)+'</div>';
+    if(l1s!==100)html+='<div class="weight-warn">⚠ 一级合计'+l1s+'%</div>';
+    html+='<div class="ind-l1-body">';
+    if(l1.children&&l1.children.length>0){
+      var l2s=sumWeight(l1.children);
+      l1.children.forEach(function(l2){
+        html+='<div class="ind-l2"><div class="ind-l2-header">';
+        html+='<input type="text" value="'+escHtml(l2.name)+'" onchange="(function(){var l1=currentIndicators.find(function(x){return x.id===\''+l1.id+'\'});if(l1){var l2=l1.children.find(function(x){return x.id===\''+l2.id+'\'});if(l2)l2.name=this.value}}).call(this)" onclick="event.stopPropagation()">';
+        html+='<input class="wt-input" type="number" value="'+l2.weight+'" onchange="(function(){var l1=currentIndicators.find(function(x){return x.id===\''+l1.id+'\'});if(l1){var l2=l1.children.find(function(x){return x.id===\''+l2.id+'\'});if(l2){l2.weight=parseFloat(this.value)||0;renderTree()}}}).call(this)" onclick="event.stopPropagation()">%';
+        html+='<span class="ind-del" onclick="rmL2(\''+l1.id+'\',\''+l2.id+'\')">✕</span></div>';
+        if(l2.desc)html+='<div class="ind-desc">'+escHtml(l2.desc)+'</div>';
+        if(l2s!==100)html+='<div class="weight-warn">⚠ 二级合计'+l2s+'%</div>';
+        html+='<div class="ind-l2-body">';
+        if(l2.children&&l2.children.length>0){
+          var l3s=sumWeight(l2.children);
+          l2.children.forEach(function(l3){
+            var tag=l3.tag?'<span class="ind-tag">'+escHtml(l3.tag)+'</span>':'';
+            html+='<div class="ind-l3">';
+            html+='<input type="text" value="'+escHtml(l3.name)+'" onchange="(function(){var l1=currentIndicators.find(function(x){return x.id===\''+l1.id+'\'});if(l1){var l2=l1.children.find(function(x){return x.id===\''+l2.id+'\'});if(l2){var l3=l2.children.find(function(x){return x.id===\''+l3.id+'\'});if(l3)l3.name=this.value}}}).call(this)" onclick="event.stopPropagation()">';
+            html+=tag;
+            html+='<input class="wt-input" type="number" value="'+l3.weight+'" onchange="(function(){var l1=currentIndicators.find(function(x){return x.id===\''+l1.id+'\'});if(l1){var l2=l1.children.find(function(x){return x.id===\''+l2.id+'\'});if(l2){var l3=l2.children.find(function(x){return x.id===\''+l3.id+'\'});if(l3){l3.weight=parseFloat(this.value)||0;renderTree()}}}}).call(this)" onclick="event.stopPropagation()">%';
+            html+='<span class="ind-del" onclick="rmL3(\''+l1.id+'\',\''+l2.id+'\',\''+l3.id+'\')">✕</span></div>';
+            if(l3.desc)html+='<div class="ind-desc" style="margin-left:10px">'+escHtml(l3.desc)+'</div>';
+          });
+          if(l3s!==100)html+='<div class="weight-warn">⚠ 三级合计'+l3s+'%</div>';
+        }
+        html+='<div class="ind-add-row"><input type="text" id="nl3-'+l2.id+'" placeholder="三级名称" style="flex:2"><input type="number" id="nw3-'+l2.id+'" placeholder="权重" value="50" style="max-width:60px"><button class="btn small" onclick="var n=$(\'nl3-'+l2.id+'\').value;if(n){addL3Direct(\''+l1.id+'\',\''+l2.id+'\',n,$(\'nw3-'+l2.id+'\').value)}">添加</button></div>';
+        html+='</div></div>';
+      });
+    }
+    html+='<div class="ind-add-row"><input type="text" id="nl2-'+l1.id+'" placeholder="二级名称" style="flex:2"><input type="number" id="nw2-'+l1.id+'" placeholder="权重" value="50" style="max-width:60px"><button class="btn small" onclick="var n=$(\'nl2-'+l1.id+'\').value;if(n){addL2Direct(\''+l1.id+'\',n,$(\'nw2-'+l1.id+'\').value)}">添加二级</button></div>';
+    html+='</div></div>';
+  });
+  container.innerHTML=html;
+}
+function addL2Direct(l1id,name,wt){var l1=currentIndicators.find(function(x){return x.id===l1id});if(!l1)return;if(!l1.children)l1.children=[];l1.children.push({id:genId(),name:name,weight:parseFloat(wt)||50,desc:'',children:[]});renderTree()}
+function addL3Direct(l1id,l2id,name,wt){var l1=currentIndicators.find(function(x){return x.id===l1id});if(!l1)return;var l2=l1.children.find(function(x){return x.id===l2id});if(!l2)return;if(!l2.children)l2.children=[];l2.children.push({id:genId(),name:name,weight:parseFloat(wt)||50,desc:''});renderTree()}
+
+function batchImport(){
+  var text=$('batch-indicators').value.trim();if(!text){toast('请输入内容','error');return}
+  var lines=text.split('\n'),newInds=[],curL1=null,curL2=null;
+  lines.forEach(function(line){
+    line=line.trim();if(!line)return;
+    if(line.indexOf('一级:')===0||line.indexOf('一级：')===0){var p=line.replace(/^一级[:：]/,'').split(',');curL1={id:genId(),name:p[0].trim(),weight:parseInt(p[1])||0,desc:'',children:[]};newInds.push(curL1);curL2=null}
+    else if(line.indexOf('二级:')===0||line.indexOf('二级：')===0){if(!curL1)return;var p=line.replace(/^二级[:：]/,'').split(',');curL2={id:genId(),name:p[0].trim(),weight:parseInt(p[1])||0,desc:'',children:[]};curL1.children.push(curL2)}
+    else if(line.indexOf('三级:')===0||line.indexOf('三级：')===0){if(!curL2)return;var p=line.replace(/^三级[:：]/,'').split(',');curL2.children.push({id:genId(),name:p[0].trim(),weight:parseInt(p[1])||0,desc:''})}
+  });
+  if(newInds.length===0){toast('未识别到有效指标','error');return}
+  currentIndicators=newInds;$('batch-indicators').value='';renderTree();toast('导入成功','success');
+}
+
+// ==================== 统计分析 ====================
+function loadStatistics(){
+  if(!currentSubmissions||currentSubmissions.length===0){$('grade-distribution').innerHTML='<p style="color:#888;text-align:center">暂无数据</p>';$('avg-scores').innerHTML='';return}
+  var gradeCount={优秀:0,良好:0,合格:0,'待努力':0},totalSum=0;
+  currentSubmissions.forEach(function(s){gradeCount[s.grade]=(gradeCount[s.grade]||0)+1;totalSum+=(s.total_score||0)});
+  var avgTotal=(totalSum/currentSubmissions.length).toFixed(1);
+  var gdHtml='<h4 style="margin-bottom:10px">等级分布</h4><div style="display:flex;gap:10px;flex-wrap:wrap">';
+  [{k:'优秀',c:'success'},{k:'良好',c:'info'},{k:'合格',c:'warning'},{k:'待努力',c:'danger'}].forEach(function(g){
+    var pct=Math.round((gradeCount[g.k]||0)*100/currentSubmissions.length);
+    gdHtml+='<div style="flex:1;min-width:70px;text-align:center;padding:10px;background:#f8f9fa;border-radius:8px"><div class="badge badge-'+g.c+'" style="margin-bottom:5px">'+g.k+'</div><div style="font-size:18px;font-weight:bold">'+(gradeCount[g.k]||0)+'</div><div style="font-size:11px;color:#888">'+pct+'%</div></div>';
+  });
+  gdHtml+='</div><p style="text-align:center;margin-top:10px;color:#666">平均分：<strong>'+avgTotal+'</strong></p>';
+  $('grade-distribution').innerHTML=gdHtml;
+  var indicators=currentTask.indicators||[],l1Names=[],l1AvgPct=[];
+  indicators.forEach(function(l1){l1Names.push(l1.name);var sumPct=0,cnt=0;currentSubmissions.forEach(function(s){var sc=calcL1Score(s,l1),mx=calcL1Max(l1);sumPct+=mx>0?sc/mx*100:0;cnt++});l1AvgPct.push(cnt>0?Math.round(sumPct/cnt):0)});
+  if(radarChart)radarChart.destroy();
+  radarChart=new Chart($('radar-chart').getContext('2d'),{type:'radar',data:{labels:l1Names,datasets:[{label:'平均得分率(%)',data:l1AvgPct,backgroundColor:'rgba(102,126,234,0.2)',borderColor:'rgba(102,126,234,1)',borderWidth:2,pointBackgroundColor:'rgba(102,126,234,1)'}]},options:{responsive:true,maintainAspectRatio:false,scales:{r:{beginAtZero:true,max:100}}}});
+  var avgHtml='<h4 style="margin-top:20px;margin-bottom:10px">各维度平均得分</h4>';
+  indicators.forEach(function(l1){avgHtml+='<div style="font-weight:600;margin:10px 0 5px">'+l1.name+'</div>';if(l1.children)l1.children.forEach(function(l2){var mx=calcL2Max(l1,l2),sm=0,cnt=0;currentSubmissions.forEach(function(s){sm+=calcL2Score(s,l1,l2);cnt++});avgHtml+='<div style="display:flex;justify-content:space-between;padding:4px 12px;font-size:13px;color:#555"><span>'+l2.name+'</span><span>'+(cnt>0?(sm/cnt).toFixed(1):0)+' / '+mx.toFixed(1)+'</span></div>'})});
+  $('avg-scores').innerHTML=avgHtml;
+}
+
+// ==================== 导出 ====================
+function exportExcel(){
+  if(!currentSubmissions||currentSubmissions.length===0){toast('暂无数据','error');return}
+  var indicators=currentTask.indicators||[],data=[];
+  currentSubmissions.forEach(function(s){var row={姓名:s.student_name,总分:s.total_score,等级:s.grade,评语:s.comment||''},scores=s.scores||{};indicators.forEach(function(l1){if(l1.children)l1.children.forEach(function(l2){if(l2.children)l2.children.forEach(function(l3){row[l1.name+'-'+l2.name+'-'+l3.name]=scores[l3.id||l3.name]||0})})});data.push(row)});
+  var ws=XLSX.utils.json_to_sheet(data),wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'评价结果');XLSX.writeFile(wb,currentTask.name+'_评价结果.xlsx');toast('导出成功','success');
+}
+function exportWord(){
+  if(!currentSubmissions||currentSubmissions.length===0){toast('暂无数据','error');return}
+  var html='<html><head><meta charset="utf-8"><title>'+currentTask.name+'</title><style>body{font-family:SimSun;font-size:14px;padding:20px}table{border-collapse:collapse;width:100%;margin:15px 0}td,th{border:1px solid #ddd;padding:8px;text-align:left}th{background:#667eea;color:#fff}</style></head><body>';
+  html+='<h2>'+currentTask.name+' 评价结果</h2><table><tr><th>姓名</th><th>总分</th><th>等级</th><th>评语</th></tr>';
+  currentSubmissions.forEach(function(s){html+='<tr><td>'+s.student_name+'</td><td>'+s.total_score+'</td><td>'+s.grade+'</td><td>'+(s.comment||'')+'</td></tr>'});
+  html+='</table></body></html>';
+  var blob=new Blob([html],{type:'application/msword'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=currentTask.name+'_评价结果.doc';a.click();toast('导出成功','success');
+}
+
+// ==================== 下载HTML & 分享 ====================
+function downloadHTML(){
+  var html=document.documentElement.outerHTML;
+  html=html.replace(/<script[^>]*codesandbox\.io[^>]*><\/script>\s*/gi,'');
+  var blob=new Blob([html],{type:'text/html;charset=utf-8'});
+  var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='AI语文评价系统.html';a.click();
+  toast('文件已下载','success');
+}
+function downloadAndDeploy(){
+  downloadHTML();
+  setTimeout(function(){window.open('https://app.netlify.com/drop','_blank')},500);
+  $('deploy-status').innerHTML='<p style="color:#2e7d32">✅ 文件已下载，Netlify部署页面已打开<br>请把下载的"AI语文评价系统.html"文件拖到Netlify页面中<br>部署成功后，把链接粘贴到下方输入框</p>';
+}
+function deployToCodeSandbox(){
+  var btn=$('csb-deploy-btn');
+  var statusEl=$('csb-status');
+  btn.disabled=true;btn.style.opacity='0.6';btn.textContent='⏳ 部署中...';
+  var html=document.documentElement.outerHTML;
+  html=html.replace(/<script[^>]*codesandbox\.io[^>]*><\/script>\s*/gi,'');
+  var data={files:{'index.html':{content:html}},title:'AI语文评价系统',template:'static'};
+  fetch('https://codesandbox.io/api/v1/sandboxes/define?json=1',{
+    method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)
+  }).then(function(r){return r.json()}).then(function(result){
+    btn.disabled=false;btn.style.opacity='1';btn.textContent='🚀 CodeSandbox一键上线';
+    if(result.sandbox_id){
+      var url='https://'+result.sandbox_id+'.csb.app/?standalone';
+      $('share-url').value=url;
+      $('qr-code-img').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+      show('qr-code-area');
+      $('deploy-url-display').textContent=url;
+      statusEl.innerHTML='<p style="color:#2e7d32">✅ 部署成功！链接: <a href="'+url+'" target="_blank" style="color:#667eea">'+url+'</a></p><p style="font-size:11px;color:#888">注意：国内访问可能较慢或显示异常，推荐使用Netlify方案</p>';
+      toast('上线成功！','success');
+    }else{
+      statusEl.innerHTML='<p style="color:#d32f2f">❌ 部署失败</p>';
+      toast('部署失败','error');
+    }
+  }).catch(function(e){
+    btn.disabled=false;btn.style.opacity='1';btn.textContent='🚀 CodeSandbox一键上线';
+    statusEl.innerHTML='<p style="color:#d32f2f">❌ 网络错误：'+e.message+'</p>';
+    toast('部署失败','error');
+  });
+}
+function generateQR(){
+  var url=$('share-url').value.trim();
+  if(!url){toast('请输入部署后的网址','error');return}
+  if(url.indexOf('http')!==0){toast('请输入完整网址，以http开头','error');return}
+  $('qr-code-img').src='https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent(url);
+  show('qr-code-area');
+  $('deploy-url-display').textContent=url;
+  toast('二维码已生成，学生扫码即可打开','success');
+}
+function copyShareURL(){
+  var url=$('share-url').value.trim();
+  if(!url){toast('请先输入网址','error');return}
+  if(navigator.clipboard){navigator.clipboard.writeText(url).then(function(){toast('链接已复制','success')})}
+  else{var t=document.createElement('textarea');t.value=url;document.body.appendChild(t);t.select();document.execCommand('copy');document.body.removeChild(t);toast('链接已复制','success')}
+}
+
+// ==================== 删除任务 ====================
+function deleteTask(){
+  if(!currentTask){toast('请先打开一个任务','error');return}
+  if(!confirm('确定删除任务"'+currentTask.name+'"？删除后无法恢复！'))return;
+  if(!confirm('再次确认：删除所有关联的学生提交数据？'))return;
+  if(offlineMode){
+    var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');
+    tasks=tasks.filter(function(t){return t.objectId!==currentTask.objectId});
+    localStorage.setItem('offline_tasks',JSON.stringify(tasks));
+    var subs=JSON.parse(localStorage.getItem('offline_submissions')||'[]');
+    subs=subs.filter(function(s){return s.task_id!==currentTask.objectId});
+    localStorage.setItem('offline_submissions',JSON.stringify(subs));
+    currentTask=null;showPage('main');if(isTeacher)loadTeacherTasks();loadStudentTasks();toast('任务已删除','success');return;
+  }
+  // 先删除关联提交
+  var subQuery=Bmob.Query('eval_submissions');subQuery.equalTo('task_id','==',currentTask.objectId);
+  subQuery.find().then(function(subs){
+    var delChain=Promise.resolve();
+    subs.forEach(function(s){delChain=delChain.then(function(){return s.destroy()})});
+    return delChain;
+  }).then(function(){
+    var taskQuery=Bmob.Query('eval_tasks');return taskQuery.destroy(currentTask.objectId);
+  }).then(function(){
+    currentTask=null;showPage('main');if(isTeacher)loadTeacherTasks();loadStudentTasks();toast('任务已删除','success');
+  }).catch(function(){toast('删除失败','error')});
+}
+
+// ==================== 学生端 ====================
+function loadStudentView(){show('view-student');hide('view-teacher');loadStudentTasks()}
+function loadStudentTasks(){
+  if(offlineMode){var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');var now=new Date();tasks=tasks.filter(function(t){return !t.deadline||new Date(t.deadline)>now});renderStudentTasks(tasks);return}
+  var query=Bmob.Query('eval_tasks');query.order('-createdAt');query.find().then(function(r){var now=new Date();r=r.filter(function(t){return !t.deadline||new Date(t.deadline)>now});renderStudentTasks(r)}).catch(function(){toast('加载失败','error')});
+}
+function renderStudentTasks(tasks){
+  var c=$('student-tasks');if(!tasks||tasks.length===0){c.innerHTML='<div class="empty-state"><div class="icon">📭</div><p>暂无可用任务</p></div>';return}
+  var html='';tasks.forEach(function(t){html+='<div class="list-item" onclick="startSubmit(\''+t.objectId+'\')"><div class="info"><div class="title">'+t.name+'</div><div class="meta">'+(t.deadline?'截止：'+formatDate(t.deadline):'无截止时间')+'</div></div><span class="badge badge-primary">参加</span></div>'});c.innerHTML=html;
+}
+function startSubmit(taskId){
+  if(offlineMode){var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');currentTask=tasks.find(function(t){return t.objectId===taskId})}
+  else{currentTask={objectId:taskId}}
+  if(currentTask){currentTask.indicators=migrateOld(currentTask.indicators);$('submit-task-name').textContent=currentTask.name||'加载中...';$('submit-task-deadline').textContent=currentTask.deadline?'截止：'+formatDate(currentTask.deadline):'无截止时间';renderCriteria(currentTask.indicators||[])}
+  showPage('submit');
+}
+function renderCriteria(inds){
+  if(!inds||inds.length===0){hide('submit-criteria');return}
+  show('submit-criteria');
+  var html='';
+  inds.forEach(function(l1){
+    html+='<div style="margin-bottom:8px"><div style="font-weight:600;color:#333;font-size:14px">▸ '+l1.name+'（'+l1.weight+'%）</div>';
+    if(l1.desc)html+='<div style="font-size:11px;color:#888;margin:2px 0 4px 8px;line-height:1.4">'+escHtml(l1.desc)+'</div>';
+    if(l1.children)l1.children.forEach(function(l2){
+      html+='<div style="margin-left:12px;margin-top:4px"><div style="font-weight:500;color:#555;font-size:13px">▪ '+l2.name+'（'+l2.weight+'%）</div>';
+      if(l2.desc)html+='<div style="font-size:11px;color:#999;margin:2px 0 4px 8px">'+escHtml(l2.desc)+'</div>';
+      if(l2.children)l2.children.forEach(function(l3){
+        var tag=l3.tag?'<span style="font-size:10px;padding:1px 6px;border-radius:8px;background:#fff3cd;color:#856404;margin-left:4px">'+escHtml(l3.tag)+'</span>':'';
+        html+='<div style="margin-left:12px;margin-top:3px;font-size:12px;color:#666">• '+l3.name+'（'+l3.weight+'%）'+tag+'</div>';
+        if(l3.desc)html+='<div style="font-size:11px;color:#999;margin:1px 0 3px 20px;line-height:1.3">'+escHtml(l3.desc)+'</div>';
+      });
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  $('criteria-detail').innerHTML=html;
+}
+function switchInputMode(mode){$$('#page-submit .tab').forEach(function(t){t.classList.remove('active')});event.target.classList.add('active');hide('input-text');hide('input-ocr');hide('input-voice');show('input-'+mode)}
+
+// ==================== OCR ====================
+function processOCR(input){if(!input.files||!input.files[0])return;show('ocr-loading');hide('ocr-result');Tesseract.recognize(input.files[0],'chi_sim',{logger:function(){}}).then(function(r){hide('ocr-loading');$('ocr-result').innerHTML='<div class="form-group"><label>识别结果</label><textarea id="essay-content" style="min-height:200px">'+r.data.text+'</textarea></div>'}).catch(function(){hide('ocr-loading');$('ocr-result').innerHTML='<p style="color:#dc3545">识别失败</p>'})}
+
+// ==================== 语音 ====================
+function toggleVoice(){
+  if(!('webkitSpeechRecognition' in window)&&!('SpeechRecognition' in window)){toast('浏览器不支持语音输入','error');return}
+  if(isRecording){recognition&&recognition.stop();$('voice-btn').textContent='🎤 点击开始录音';$('voice-btn').classList.remove('success');isRecording=false;return}
+  var SR=window.SpeechRecognition||window.webkitSpeechRecognition;recognition=new SR();recognition.lang='zh-CN';recognition.continuous=true;recognition.interimResults=true;
+  recognition.onresult=function(e){var t='';for(var i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;$('voice-text').innerHTML='<p>'+t+'</p><button class="btn small secondary" onclick="applyVoice()">应用到文本框</button>'};
+  recognition.onerror=function(){toast('语音识别错误','error')};recognition.onend=function(){isRecording=false;$('voice-btn').textContent='🎤 点击开始录音';$('voice-btn').classList.remove('success')};
+  recognition.start();isRecording=true;$('voice-btn').textContent='🔴 录音中，点击停止';$('voice-btn').classList.add('success');
+}
+function applyVoice(){var t=$('voice-text').textContent.replace('应用到文本框','');if($('essay-content'))$('essay-content').value=t;toast('已应用','success')}
+
+// ==================== 提交 & AI评分 ====================
+function submitWork(){
+  var name=$('student-name').value.trim(),content=$('essay-content')?$('essay-content').value.trim():'';
+  if(!name){toast('请输入姓名','error');return}if(!content){toast('请输入内容','error');return}
+  var scores=aiScore(content),total=0;for(var k in scores)total+=scores[k];total=Math.round(total*10)/10;
+  var grade=getGrade(total),comment=getAutoComment(grade),advice=generateAdvice(scores,content);
+  var sub={task_id:currentTask.objectId,student_name:name,content:content,scores:scores,total_score:total,grade:grade,comment:comment,createdAt:new Date().toISOString()};
+  if(offlineMode){sub.objectId='offline_'+Date.now();var subs=JSON.parse(localStorage.getItem('offline_submissions')||'[]');subs.push(sub);localStorage.setItem('offline_submissions',JSON.stringify(subs));showResult(sub,advice);return}
+  var query=Bmob.Query('eval_submissions');for(var k in sub){if(k!=='objectId')query.set(k,sub[k])}
+  query.save().then(function(res){sub.objectId=res.objectId;showResult(sub,advice)}).catch(function(){toast('提交失败','error')});
+}
+
+function aiScore(content){
+  var indicators=currentTask.indicators||[];
+  if(indicators.length===0)loadDefaults();
+  indicators=currentTask.indicators||[];
+  var scores={};
+  // 运行检测，生成诊断信息
+  var diag=detectAnalogyStructure(content);
+  indicators.forEach(function(l1){if(l1.children)l1.children.forEach(function(l2){if(l2.children)l2.children.forEach(function(l3){var pct=scoreL3WithDiag(content,l3,diag),mx=calcL3Max(l1,l2,l3),key=l3.id||l3.name;scores[key]=Math.round(mx*pct/100*10)/10})})});
+  // 保存诊断信息供结果页显示
+  window._lastDiag=diag;
+  return scores;
+}
+
+// 通用结构检测（提取为独立函数，避免重复计算）
+function detectAnalogyStructure(content){
+  var wc=content.replace(/\s/g,'').length;
+  // 1. 连接词
+  var linkWords=['正如','犹如','好比','这就好比','这就如同','如同','仿佛','好似','就像','恰如','恰似','同理可证'];
+  var linkHits=[];linkWords.forEach(function(w){var i=content.indexOf(w);while(i>-1){linkHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  linkHits.sort(function(a,b){return a.pos-b.pos});
+  var linkN=0;if(linkHits.length>0){linkN=1;for(var i=1;i<linkHits.length;i++){if(linkHits[i].pos-linkHits[i-1].pos>2)linkN++}}
+  linkN=Math.min(3,linkN);
+  // 2. 排比
+  var parallelN=0;
+  var semiParts=content.split(/[；]/);
+  if(semiParts.length>=3){var hasResultWord=0;semiParts.forEach(function(p){if(p.match(/方能|才能|便可|才可|自能|终能|终将/))hasResultWord++});if(hasResultWord>=3)parallelN=3}
+  if(parallelN<3){var commaParts=content.split(/[，]/);if(commaParts.length>=4){var patternWords=[];commaParts.forEach(function(p){var m=p.match(/方能|才能|便可|终能|终将/);if(m)patternWords.push(m[0])});if(patternWords.length>=3)parallelN=Math.max(parallelN,3);else if(patternWords.length>=2)parallelN=Math.max(parallelN,2)}}
+  // 3. 喻体
+  var things=['种树','行路','建楼','种花','浇水','磨刀','登山','造船','织布','铸剑','挖井','修路','建房','行舟','耕田','点灯','养蚕','射箭','弹琴','绘画',
+    '树','花','水','路','桥','舟','山','风','雨','火','种子','根基','楼','砖','船','帆','车','马','田','渠','井','灯','烛','剑','石','竹','鸟','鱼','蚕','丝','苗',
+    '土','玉','铁','金','银','铜','墨','纸','笔','河','海','云','星','月','日','雪','霜','露','泉','溪','瀑','崖','峰','谷','原','野','林','草','叶','根',
+    '高山','江海','美玉','细土','流水','顽玉','璞玉','大树','小草','巨石','清泉','深井','长河','大路','小溪','高峰','深海','厚土','苍松','翠竹','寒梅',
+    '鹰','蝶','蜂','蚁','龙','虎','鹤','松','梅','兰','菊','莲','竹','藤','核','壳','珠',
+    '锻造','淬炼','打磨','雕琢','堆叠','汇聚','积累','沉淀','磨练','锤炼','淘洗','筛选','熔铸','编织','百炼','千锤','万磨','厚积','薄发','砥砺'];
+  var thingHits=[];things.forEach(function(w){var i=content.indexOf(w);while(i>-1){thingHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  thingHits.sort(function(a,b){return a.pos-b.pos});
+  var uniqueAnalogyPoses=[];thingHits.forEach(function(h){var isDup=false;for(var u=0;u<uniqueAnalogyPoses.length;u++){if(Math.abs(h.pos-uniqueAnalogyPoses[u])<4){isDup=true;break}}if(!isDup)uniqueAnalogyPoses.push(h.pos)});
+  var thingN=uniqueAnalogyPoses.length;
+  var structuralN=Math.max(linkN,parallelN);
+  var analogyN;if(structuralN>0){analogyN=Math.min(3,Math.max(structuralN,Math.ceil(thingN/4)))}else{analogyN=Math.min(3,Math.ceil(thingN/3))}
+  if(parallelN>=3&&thingN<3)analogyN=Math.min(3,Math.max(analogyN,parallelN));
+  // 4. 相似点
+  var simPatterns=['都需要','都不能','都离不开','都少不了','都一样','都是','也得','也不能','也不可','也离不开','也要','也会','一样','同理','同样','类似','相似','相同','共性','相通','一致','两者都','两者也','都不可',
+    '亦是如此','也是如此','亦然','道理一样','道理相同','亦是','亦须','亦需','亦要','亦能','无不如此','无不这样','都是一样','无不','莫不如此','莫不然',
+    '自然之理如此','世间之理如此','天下之理如此','万物皆然','道理亦然'];
+  var simHits=[];simPatterns.forEach(function(w){var i=content.indexOf(w);while(i>-1){simHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  simHits.sort(function(a,b){return a.pos-b.pos});
+  var simN=0;if(simHits.length>0){simN=1;for(var i=1;i<simHits.length;i++){if(simHits[i].pos-simHits[i-1].pos>3)simN++}}
+  var clauses=content.split(/[；，。！？]/);var alsoClauses=0;clauses.forEach(function(cl){if(cl.match(/也(需|要|会|能|得|不可|不能|离不开)/))alsoClauses++;if(cl.match(/亦(是|须|需|要|能|然|如此)/))alsoClauses++});
+  if(alsoClauses>0&&simN<3)simN=Math.min(3,simN+alsoClauses);
+  if(content.match(/(亦|也|同样|一样|同理).*(如此|这样|一般|一样|般)/))simN=Math.max(simN,2);
+  if(content.match(/(自然|世间|万物).*(如此|亦然|一样|同理|同样)/))simN=Math.max(simN,2);
+  if(content.match(/皆(需|要|会|能|得|离不开|源于|来自)/))simN=Math.max(simN,Math.min(3,simN+1));
+  simN=Math.min(3,simN);
+  return {linkN:linkN,parallelN:parallelN,thingN:thingN,analogyN:analogyN,simN:simN,alsoClauses:alsoClauses,linkWords:linkHits.map(function(h){return h.w}),thingWords:thingHits.slice(0,10).map(function(h){return h.w}),simWords:simHits.map(function(h){return h.w})};
+}
+
+// 带诊断数据的评分（使用预计算结果）
+function scoreL3WithDiag(content,l3,diag){
+  var n=l3.name||'',pct=0;
+  var wc=content.replace(/\s/g,'').length;
+  var linkN=diag.linkN,parallelN=diag.parallelN,thingN=diag.thingN,analogyN=diag.analogyN,simN=diag.simN;
+  var effectiveLinkN=Math.max(linkN,parallelN);
+  if(n.match(/观点.*清晰|清晰.*呈现/)){
+    var hasOpinion=countW(content,['认为','观点','论点','主张','提出','指出','表明','证明','应当','应该','必须','需要','重要的是','关键在于','只有','才能','就要','务必','唯有','离不开']);
+    if(hasOpinion>=2)pct=95;else if(hasOpinion>=1)pct=88;else if(wc>30)pct=75;else pct=60;
+  }else if(n.match(/3.*喻体|喻体.*3|三个.*喻体|给出.*喻体/)){
+    if(analogyN>=3)pct=95;else if(analogyN>=2)pct=82;else if(analogyN>=1)pct=70;else pct=40;
+  }else if(n.match(/类比.*连接|连接词|关联词/)){
+    if(effectiveLinkN>=3)pct=95;else if(effectiveLinkN>=2)pct=85;else if(effectiveLinkN>=1)pct=75;else if(parallelN>=2)pct=80;else pct=55;
+  }else if(n.match(/3.*相似|相似.*3|三个.*相似|点出.*相似|明确.*相似/)){
+    if(simN>=2)pct=95;else if(simN>=1)pct=90;else if(analogyN>=1)pct=60;else pct=25;
+  }else if(n.match(/相似.*常理|常理|符合.*常理|成立/)){
+    var logicW=countW(content,['因此','所以','可见','逻辑','道理','规律','必然','积累','坚持','坚守','耐心','踏实','循序渐进','水到渠成','厚积薄发','持之以恒','脚踏实地','日积月累','根基','磨砺','沉淀','淬炼','雕琢','成长','磨练']);
+    if(simN>=1)pct=85+Math.min(10,logicW*2);else if(analogyN>=1)pct=75+Math.min(10,logicW*2);else pct=65;
+  }else if(n.match(/简练.*通顺|通顺/)){
+    var sentences=(content.match(/[。！？；]/g)||[]).length;
+    if(wc>=50)pct=85+Math.min(10,sentences);else if(wc>=20)pct=75+Math.min(10,sentences);else pct=60;
+  }else if(n.match(/观点|论点|立意/)){pct=75+countW(content,['认为','观点','论点','主张','提出','指出','说明','表明','证明','论证'])*3}
+  else if(n.match(/论据|举例/)){pct=65+countW(content,['比如','例如','如','像','事例','案例','典故','故事'])*5}
+  else{pct=60+(wc>80?15:wc>40?10:0)}
+  return Math.max(0,Math.min(100,pct));
+}
+
+// 类比微写作专用评分（3类比制，宽松版v2）
+// 核心改进：识别排比结构、扩展喻体词库、识别全局相似点、提高基线分
+function scoreL3(content,l3){
+  var n=l3.name||'',pct=0;
+  var wc=content.replace(/\s/g,'').length;
+
+  // ===== 通用结构检测 =====
+  // 1. 数连接词（去重，同一位置只算一次）
+  var linkWords=['正如','犹如','好比','这就好比','这就如同','如同','仿佛','好似','就像','恰如','恰似','同理可证'];
+  var linkHits=[];linkWords.forEach(function(w){var i=content.indexOf(w);while(i>-1){linkHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  linkHits.sort(function(a,b){return a.pos-b.pos});
+  var linkN=0;if(linkHits.length>0){linkN=1;for(var i=1;i<linkHits.length;i++){if(linkHits[i].pos-linkHits[i-1].pos>2)linkN++}}
+  linkN=Math.min(3,linkN);
+
+  // 2. 检测排比结构（中国学生常用类比表达方式，比"正如"更自然）
+  var parallelN=0;
+  var semiParts=content.split(/[；]/);
+  if(semiParts.length>=3){
+    var hasResultWord=0;
+    semiParts.forEach(function(p){if(p.match(/方能|才能|便可|才可|自能|终能|终将/))hasResultWord++});
+    if(hasResultWord>=3)parallelN=3;
+    else{
+      var negResult=semiParts.filter(function(p){return p.match(/不/) && p.match(/方能|才能|便可|才可|终能/)});
+      if(negResult.length>=3)parallelN=3;
+      else if(negResult.length>=2)parallelN=2;
+    }
+  }
+  // 逗号分隔的排比也检测
+  if(parallelN<3){
+    var commaParts=content.split(/[，]/);
+    if(commaParts.length>=4){
+      var patternWords=[];commaParts.forEach(function(p){var m=p.match(/方能|才能|便可|终能|终将/);if(m)patternWords.push(m[0])});
+      if(patternWords.length>=3)parallelN=Math.max(parallelN,3);
+      else if(patternWords.length>=2)parallelN=Math.max(parallelN,2);
+    }
+  }
+
+  // 3. 数喻体（大幅扩展词汇表，覆盖常见类比载体）
+  var things=['种树','行路','建楼','种花','浇水','磨刀','登山','造船','织布','铸剑','挖井','修路','建房','行舟','耕田','点灯','养蚕','射箭','弹琴','绘画',
+    '树','花','水','路','桥','舟','山','风','雨','火','种子','根基','楼','砖','船','帆','车','马','田','渠','井','灯','烛','剑','石','竹','鸟','鱼','蚕','丝','苗',
+    '土','玉','铁','金','银','铜','墨','纸','笔','河','海','云','星','月','日','雪','霜','露','泉','溪','瀑','崖','峰','谷','原','野','林','草','叶','根',
+    '高山','江海','美玉','细土','流水','顽玉','璞玉','大树','小草','巨石','清泉','深井','长河','大路','小溪','高峰','深海','厚土','苍松','翠竹','寒梅',
+    '鹰','蝶','蜂','蚁','龙','虎','鹤','松','梅','兰','菊','莲','竹','藤','核','壳','珠',
+    '锻造','淬炼','打磨','雕琢','堆叠','汇聚','积累','沉淀','磨练','锤炼','淘洗','筛选','熔铸','编织','百炼','千锤','万磨','厚积','薄发','砥砺'];
+  var thingHits=[];var thingPoses=[];
+  things.forEach(function(w){var i=content.indexOf(w);while(i>-1){thingHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  // 按位置排序，位置重叠的只算一次（避免"高山"和"山"重复计数）
+  thingHits.sort(function(a,b){return a.pos-b.pos});
+  var uniqueAnalogyPoses=[];
+  thingHits.forEach(function(h){
+    var isDup=false;
+    for(var u=0;u<uniqueAnalogyPoses.length;u++){
+      if(Math.abs(h.pos-uniqueAnalogyPoses[u])<4){isDup=true;break}
+    }
+    if(!isDup)uniqueAnalogyPoses.push(h.pos);
+  });
+  var thingN=uniqueAnalogyPoses.length;
+  // 计算类比数：优先信任结构信号（连接词/排比），喻体词作为辅助
+  var structuralN=Math.max(linkN,parallelN);
+  var analogyN;
+  if(structuralN>0){
+    analogyN=Math.min(3,Math.max(structuralN,Math.ceil(thingN/4)));
+  }else{
+    analogyN=Math.min(3,Math.ceil(thingN/3));
+  }
+  if(parallelN>=3&&thingN<3)analogyN=Math.min(3,Math.max(analogyN,parallelN));
+
+  // 4. 数相似点（大幅扩展，支持全局相似点表达）
+  var simPatterns=['都需要','都不能','都离不开','都少不了','都一样','都是','也得','也不能','也不可','也离不开','也要','也会','一样','同理','同样','类似','相似','相同','共性','相通','一致','两者都','两者也','都不可',
+    '亦是如此','也是如此','亦然','道理一样','道理相同','亦是','亦须','亦需','亦要','亦能','无不如此','无不这样','都是一样','无不','莫不如此','莫不然',
+    '自然之理如此','世间之理如此','天下之理如此','万物皆然','道理亦然'];
+  var simHits=[];simPatterns.forEach(function(w){var i=content.indexOf(w);while(i>-1){simHits.push({w:w,pos:i});i=content.indexOf(w,i+w.length)}});
+  simHits.sort(function(a,b){return a.pos-b.pos});
+  var simN=0;if(simHits.length>0){simN=1;for(var i=1;i<simHits.length;i++){if(simHits[i].pos-simHits[i-1].pos>3)simN++}}
+  // 额外检测："也/亦+动词"结构的类比表达
+  var clauses=content.split(/[；，。！？]/);
+  var alsoClauses=0;clauses.forEach(function(cl){
+    if(cl.match(/也(需|要|会|能|得|不可|不能|离不开)/))alsoClauses++;
+    if(cl.match(/亦(是|须|需|要|能|然|如此)/))alsoClauses++;
+  });
+  if(alsoClauses>0&&simN<3)simN=Math.min(3,simN+alsoClauses);
+  // 检测全局相似点表达："X如此，Y亦是如此"等
+  if(content.match(/(亦|也|同样|一样|同理).*(如此|这样|一般|一样|般)/))simN=Math.max(simN,2);
+  if(content.match(/(自然|世间|万物).*(如此|亦然|一样|同理|同样)/))simN=Math.max(simN,2);
+  // 检测"皆/都+动/形"结构作为共性表达
+  if(content.match(/皆(需|要|会|能|得|离不开|源于|来自)/))simN=Math.max(simN,Math.min(3,simN+1));
+  simN=Math.min(3,simN);
+
+  // ===== 按指标评分（基线大幅提高）=====
+  // 观点句清晰呈现
+  if(n.match(/观点.*清晰|清晰.*呈现/)){
+    var hasOpinion=countW(content,['认为','观点','论点','主张','提出','指出','表明','证明','应当','应该','必须','需要','重要的是','关键在于','只有','才能','就要','务必','唯有','离不开']);
+    if(hasOpinion>=2)pct=95;
+    else if(hasOpinion>=1)pct=88;
+    else if(wc>30)pct=75;
+    else pct=60;
+  }
+  // 给出3个不同的喻体（最核心要素，权重最高）
+  else if(n.match(/3.*喻体|喻体.*3|三个.*喻体|给出.*喻体/)){
+    if(analogyN>=3)pct=95;
+    else if(analogyN>=2)pct=82;
+    else if(analogyN>=1)pct=70;
+    else pct=40;
+  }
+  // 使用类比连接词（权重已降低，评分也大幅放宽，排比算连接）
+  else if(n.match(/类比.*连接|连接词|关联词/)){
+    var effectiveLinkN=Math.max(linkN,parallelN);
+    if(effectiveLinkN>=3)pct=95;
+    else if(effectiveLinkN>=2)pct=85;
+    else if(effectiveLinkN>=1)pct=75;
+    else if(parallelN>=2)pct=80;
+    else pct=55;
+  }
+  // 明确点出相似点（1个即达标，2+优秀）
+  else if(n.match(/3.*相似|相似.*3|三个.*相似|点出.*相似|明确.*相似/)){
+    if(simN>=2)pct=95;
+    else if(simN>=1)pct=90;
+    else if(analogyN>=1)pct=60;
+    else pct=25;
+  }
+  // 相似点符合常理
+  else if(n.match(/相似.*常理|常理|符合.*常理|成立/)){
+    var logicW=countW(content,['因此','所以','可见','逻辑','道理','规律','必然','积累','坚持','坚守','耐心','踏实','循序渐进','水到渠成','厚积薄发','持之以恒','脚踏实地','日积月累','根基','磨砺','沉淀','淬炼','雕琢','成长','磨练']);
+    if(simN>=1)pct=85+Math.min(10,logicW*2);
+    else if(analogyN>=1)pct=75+Math.min(10,logicW*2);
+    else pct=65;
+  }
+  // 表达简练通顺
+  else if(n.match(/简练.*通顺|通顺/)){
+    var sentences=(content.match(/[。！？；]/g)||[]).length;
+    if(wc>=50)pct=85+Math.min(10,sentences);
+    else if(wc>=20)pct=75+Math.min(10,sentences);
+    else pct=60;
+  }
+  // 通用匹配
+  else if(n.match(/观点|论点|立意/)){pct=75+countW(content,['认为','观点','论点','主张','提出','指出','说明','表明','证明','论证'])*3}
+  else if(n.match(/论据|举例/)){pct=65+countW(content,['比如','例如','如','像','事例','案例','典故','故事'])*5}
+  else{pct=60+(wc>80?15:wc>40?10:0)}
+  return Math.max(0,Math.min(100,pct));
+}
+function countW(text,words){var c=0;words.forEach(function(w){if(text.indexOf(w)>-1)c++});return c}
+function sentVariety(text){var v=0;if(text.match(/[，、]/g)&&text.match(/[。！？]/g))v+=2;if(text.match(/[！？]/g))v+=1;if(text.match(/[？]/g))v+=1;var p=text.match(/的[，。].*?的[，。].*?的[，。]/g);if(p)v+=p.length;return Math.min(10,v)}
+
+function getAutoComment(grade){
+  var lm={优秀:'excellent',良好:'good',合格:'qualified','待努力':'unqualified'},lv=lm[grade]||'qualified',comments=[];
+  if(offlineMode){comments=(JSON.parse(localStorage.getItem('offline_comments')||'{}'))[lv]||[]}
+  else{comments=(JSON.parse(localStorage.getItem('task_comments_'+currentTask.objectId)||'{}'))[lv]||[]}
+  if(comments.length===0){var d={excellent:['要素齐全，一语中的。3个类比均有连接词，且3个相似点全部显性点出并成立，逻辑清晰。'],good:['框架初成，略有瑕疵。3个比方和连接词都有，但相似点只显性写出了1-2个，或相似点略显牵强。'],qualified:['要素缺失，依靠暗示。写了比方，但没用连接词，且3个相似点均未直接写出，需老师揣度其逻辑。'],'unqualified':['结构缺失，逻辑断裂。未围绕观点写比方，或只堆砌故事不论理，完全不构成类比。需要重新审视论证方法。']};comments=d[lv]||d.qualified}
+  return comments[Math.floor(Math.random()*comments.length)];
+}
+
+function genSubComments(scores){
+  var indicators=currentTask.indicators||[],html='';
+  indicators.forEach(function(l1){
+    var l1Sc=0,l1Mx=calcL1Max(l1);
+    if(l1.children)l1.children.forEach(function(l2){
+      var l2Sc=calcL2ScoreFromScores(scores,l1,l2),l2Mx=calcL2Max(l1,l2),l2Pct=l2Mx>0?Math.round(l2Sc/l2Mx*100):0;
+      var c='';
+      if(l2Pct>=85)c='表现出色，';
+      else if(l2Pct>=70)c='表现良好，';
+      else if(l2Pct>=60)c='基本达标，';
+      else c='有待提升，';
+      var l2n=l2.name||'';
+      if(l2n.match(/核心.*观点|观点.*明确/))c+=l2Pct>=70?'观点句呈现清晰。':'需要更明确地陈述核心观点。';
+      else if(l2n.match(/喻体.*数量|数量.*达标/))c+=l2Pct>=70?'喻体数量达标，选取贴切。':'喻体数量不足或缺少不同的类比载体。';
+      else if(l2n.match(/类比.*连接|连接.*显性/))c+=l2Pct>=70?'类比连接方式有效。':'可使用"正如""犹如"等连接词，或用排比句式衔接。';
+      else if(l2n.match(/相似.*显性|显性化/))c+=l2Pct>=70?'相似点表达清晰。':'需要更明确地写出本体与喻体的相似点。';
+      else if(l2n.match(/相似.*成立|常理/))c+=l2Pct>=70?'相似点符合常理。':'相似点需要更合乎逻辑。';
+      else if(l2n.match(/语句|规范/))c+=l2Pct>=70?'语句简练通顺。':'语句表达需要注意通顺性。';
+      else c+=l2Pct>=70?'表现不错。':'仍需努力。';
+      html+='<div class="res-comment-block"><strong>'+l2.name+'</strong>（'+l2Pct+'%）：'+c+'</div>';
+    });
+  });
+  return html;
+}
+
+function showResult(submission,advice){
+  $('result-total-score').textContent=submission.total_score;
+  var ge=$('result-grade');ge.textContent=submission.grade;
+  ge.className='badge badge-'+(submission.grade==='优秀'?'success':submission.grade==='良好'?'info':submission.grade==='合格'?'warning':'danger');
+  ge.style.fontSize='14px';ge.style.padding='6px 16px';
+  var indicators=currentTask.indicators||[],scores=submission.scores||{},html='';
+  indicators.forEach(function(l1){
+    var l1Sc=0,l1Mx=calcL1Max(l1);
+    if(l1.children)l1.children.forEach(function(l2){l1Sc+=calcL2ScoreFromScores(scores,l1,l2)});
+    html+='<div class="res-l1"><div class="res-l1-head"><span>'+l1.name+'</span><span class="res-l1-score">'+l1Sc.toFixed(1)+' / '+l1Mx.toFixed(1)+'</span></div>';
+    if(l1.desc)html+='<div class="res-l1-desc">'+escHtml(l1.desc)+'</div>';
+    if(l1.children)l1.children.forEach(function(l2){
+      var l2Sc=calcL2ScoreFromScores(scores,l1,l2),l2Mx=calcL2Max(l1,l2);
+      html+='<div class="res-l2"><div class="res-l2-head"><span>'+l2.name+'</span><span class="res-l2-score">'+l2Sc.toFixed(1)+' / '+l2Mx.toFixed(1)+'</span></div>';
+      if(l2.children)l2.children.forEach(function(l3){
+        var key=l3.id||l3.name,l3Sc=scores[key]||0,l3Mx=calcL3Max(l1,l2,l3),l3Pct=l3Mx>0?Math.round(l3Sc/l3Mx*100):0;
+        var tag=l3.tag?'<span class="res-l3-tag">'+escHtml(l3.tag)+'</span>':'';
+        html+='<div class="res-l3"><span>'+l3.name+tag+'</span><span><span class="res-l3-pct">'+l3Pct+'%</span> <span class="res-l3-score">'+l3Sc.toFixed(1)+'/'+l3Mx.toFixed(1)+'</span></span></div>';
+        if(l3.desc)html+='<div class="res-l3-desc">'+escHtml(l3.desc)+'</div>';
+      });
+      html+='</div>';
+    });
+    html+='</div>';
+  });
+  $('result-detail').innerHTML=html;
+  $('result-comment').textContent=submission.comment;
+  var subComHtml=genSubComments(scores);
+  if(subComHtml)$('result-sub-comments').innerHTML='<div style="padding:15px;background:#fffde7;border-radius:8px"><h4 style="margin-bottom:10px">📋 分项评语</h4>'+subComHtml+'</div>';
+  else $('result-sub-comments').innerHTML='';
+  $('result-advice').textContent=advice;
+  // 显示诊断信息
+  var diagHtml='';
+  if(window._lastDiag){
+    var d=window._lastDiag;
+    diagHtml='<div style="padding:15px;background:#fffde7;border-radius:8px"><h4 style="margin-bottom:8px">🔍 AI检测详情</h4>';
+    diagHtml+='<div style="font-size:12px;color:#666;line-height:2">';
+    diagHtml+='<div>📝 连接词检测：<strong>'+d.linkN+'</strong>/3'+(d.linkWords.length?'（找到：'+d.linkWords.join('、')+'）':'（未找到"正如""犹如"等显式连接词）')+'</div>';
+    diagHtml+='<div>📊 排比结构：<strong>'+d.parallelN+'</strong>/3'+(d.parallelN>=3?' ✓ 排比句式有效':'（未检测到3组以上排比）')+'</div>';
+    diagHtml+='<div>🎯 喻体数量：<strong>'+d.analogyN+'</strong>/3'+(d.thingWords.length?'（识别到：'+d.thingWords.join('、')+'…）':'（未识别到类比载体词）')+'</div>';
+    diagHtml+='<div>💡 相似点：<strong>'+d.simN+'</strong>/3'+(d.simWords.length?'（找到：'+d.simWords.join('、')+'）':'（未找到相似点表达）')+'</div>';
+    diagHtml+='</div></div>';
+  }
+  $('result-diagnosis').innerHTML=diagHtml;
+  showPage('result');
+}
+
+function generateAdvice(scores,content){
+  var advice=[],wordCount=content.replace(/\s/g,'').length;
+  if(wordCount<200)advice.push('文章篇幅较短，建议充实内容，字数达到600-800字为宜。');
+  var indicators=currentTask.indicators||[],lowItems=[];
+  indicators.forEach(function(l1){if(l1.children)l1.children.forEach(function(l2){if(l2.children)l2.children.forEach(function(l3){if(!l3.tag||l3.tag.indexOf('调节')===-1){var key=l3.id||l3.name,s=scores[key]||0,mx=0;if(l1.children)l1.children.forEach(function(ll2){if(ll2.children)ll2.children.forEach(function(ll3){if((ll3.id||ll3.name)===key)mx=calcL3Max(l1,ll2,ll3)})});if(mx>0&&s/mx<0.5)lowItems.push(l3.name)}})})});
+  if(lowItems.length>0)advice.push('以下方面需要加强：'+lowItems.join('、')+'。');
+  if(advice.length===0)advice.push('整体表现良好，继续保持！');
+  return advice.join('\n');
+}
+
+// ==================== 创建任务 ====================
+function createTask(){
+  var name=$('task-name').value.trim(),deadline=$('task-deadline').value;
+  if(!name){toast('请输入任务名称','error');return}
+  if(currentIndicators.length===0){toast('请添加至少一个一级指标','error');return}
+  var hasIssue=false;
+  currentIndicators.forEach(function(l1){if(!l1.children||l1.children.length===0){hasIssue=true;toast('"'+l1.name+'"下缺少二级指标','error')}else l1.children.forEach(function(l2){if(!l2.children||l2.children.length===0){hasIssue=true;toast('"'+l2.name+'"下缺少三级指标','error')}})});
+  if(hasIssue)return;
+  var task={name:name,deadline:deadline||null,indicators:JSON.parse(JSON.stringify(currentIndicators)),grade_thresholds:{excellent:parseInt($('threshold-excellent').value)||85,good:parseInt($('threshold-good').value)||70,qualified:parseInt($('threshold-qualified').value)||60},createdAt:new Date().toISOString()};
+  if(offlineMode){task.objectId='offline_'+Date.now();var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');tasks.push(task);localStorage.setItem('offline_tasks',JSON.stringify(tasks));toast('创建成功','success');currentIndicators=[];showPage('main');if(isTeacher)loadTeacherTasks();loadStudentTasks();return}
+  var query=Bmob.Query('eval_tasks');for(var k in task)query.set(k,task[k]);
+  query.save().then(function(){toast('创建成功','success');currentIndicators=[];showPage('main');if(isTeacher)loadTeacherTasks();loadStudentTasks()}).catch(function(){toast('创建失败','error')});
+}
+
+// ==================== 评语库 ====================
+function selectTaskForComments(){
+  if(offlineMode){var tasks=JSON.parse(localStorage.getItem('offline_tasks')||'[]');if(tasks.length===0){toast('暂无任务','error');return}var sel=prompt('选择任务:\n'+tasks.map(function(t,i){return(i+1)+'. '+t.name}).join('\n')+'\n\n请输入序号:');if(!sel)return;var idx=parseInt(sel)-1;if(idx<0||idx>=tasks.length){toast('无效选择','error');return}currentTask={objectId:tasks[idx].objectId,name:tasks[idx].name};loadCommentLibrary();return}
+  var query=Bmob.Query('eval_tasks');query.find().then(function(tasks){if(tasks.length===0){toast('暂无任务','error');return}var sel=prompt('选择任务:\n'+tasks.map(function(t,i){return(i+1)+'. '+t.name}).join('\n')+'\n\n请输入序号:');if(!sel)return;var idx=parseInt(sel)-1;if(idx<0||idx>=tasks.length){toast('无效选择','error');return}currentTask={objectId:tasks[idx].objectId,name:tasks[idx].name};loadCommentLibrary()});
+}
+function loadCommentLibrary(){
+  $('current-comment-task').textContent=currentTask.name;
+  var levels=['excellent','good','qualified','unqualified'],ln={excellent:'优秀',good:'良好',qualified:'合格',unqualified:'待努力'},lc={excellent:'success',good:'info',qualified:'warning',unqualified:'danger'};
+  var html='';
+  levels.forEach(function(level){
+    var comments=getComments(level);
+    html+='<div style="margin-bottom:15px"><div style="display:flex;justify-content:space-between;align-items:center;padding:10px;background:#f0f0f0;border-radius:8px;cursor:pointer" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\'"><h4 class="badge badge-'+lc[level]+'" style="margin:0">'+ln[level]+'</h4><span>'+comments.length+'条 ▼</span></div>';
+    html+='<div style="padding:10px 0">';
+    if(comments.length===0)html+='<p style="color:#888;font-size:12px;text-align:center">暂无评语</p>';
+    else comments.forEach(function(c,i){html+='<div style="display:flex;justify-content:space-between;align-items:start;padding:8px;background:#f8f9fa;border-radius:6px;margin-top:8px"><p style="flex:1;font-size:13px;color:#555">'+c+'</p><span style="color:#dc3545;cursor:pointer;padding:5px" onclick="rmComment(\''+level+'\','+i+')">✕</span></div>'});
+    html+='<div style="margin-top:10px"><textarea id="nc-'+level+'" placeholder="添加新评语" style="min-height:60px"></textarea><button class="btn small" style="margin-top:5px" onclick="addComment(\''+level+'\')">添加</button></div>';
+    html+='<div style="margin-top:10px"><label style="font-size:12px">批量导入（每行一条）</label><textarea id="bc-'+level+'" style="min-height:60px;font-size:12px"></textarea><button class="btn small secondary" style="margin-top:5px" onclick="batchComment(\''+level+'\')">导入</button></div>';
+    html+='</div></div>';
+  });
+  $('comment-library-content').innerHTML=html;
+}
+function getComments(level){if(offlineMode){return(JSON.parse(localStorage.getItem('offline_comments')||'{}'))[level]||[]}return(JSON.parse(localStorage.getItem('task_comments_'+currentTask.objectId)||'{}'))[level]||[]}
+function addComment(level){var inp=$('nc-'+level),text=inp.value.trim();if(!text){toast('请输入评语','error');return}if(offlineMode){var libs=JSON.parse(localStorage.getItem('offline_comments')||'{}');if(!libs[level])libs[level]=[];libs[level].push(text);localStorage.setItem('offline_comments',JSON.stringify(libs))}else{var libs=JSON.parse(localStorage.getItem('task_comments_'+currentTask.objectId)||'{}');if(!libs[level])libs[level]=[];libs[level].push(text);localStorage.setItem('task_comments_'+currentTask.objectId,JSON.stringify(libs))}inp.value='';loadCommentLibrary();toast('添加成功','success')}
+function batchComment(level){var text=$('bc-'+level).value.trim();if(!text){toast('请输入内容','error');return}var lines=text.split('\n').filter(function(l){return l.trim()});if(lines.length===0)return;if(offlineMode){var libs=JSON.parse(localStorage.getItem('offline_comments')||'{}');if(!libs[level])libs[level]=[];libs[level]=libs[level].concat(lines);localStorage.setItem('offline_comments',JSON.stringify(libs))}else{var libs=JSON.parse(localStorage.getItem('task_comments_'+currentTask.objectId)||'{}');if(!libs[level])libs[level]=[];libs[level]=libs[level].concat(lines);localStorage.setItem('task_comments_'+currentTask.objectId,JSON.stringify(libs))}$('bc-'+level).value='';loadCommentLibrary();toast('导入成功，共'+lines.length+'条','success')}
+function rmComment(level,idx){if(offlineMode){var libs=JSON.parse(localStorage.getItem('offline_comments')||'{}');if(libs[level]){libs[level].splice(idx,1);localStorage.setItem('offline_comments',JSON.stringify(libs))}}else{var libs=JSON.parse(localStorage.getItem('task_comments_'+currentTask.objectId)||'{}');if(libs[level]){libs[level].splice(idx,1);localStorage.setItem('task_comments_'+currentTask.objectId,JSON.stringify(libs))}}loadCommentLibrary()}
+
+// ==================== 模态框 ====================
+function closeModal(id){$(id).classList.remove('show')}
+
+// ==================== 初始化 ====================
+function loadMainPage(){
+  showPage('main');
+  show('view-teacher');show('view-student');
+  if(offlineMode||localStorage.getItem('offline_mode')==='true'){offlineMode=true}
+  else{var config=localStorage.getItem('bmob_config');if(config){try{var cfg=JSON.parse(config);if(cfg.mode==='simple')Bmob.initialize(cfg.appId,cfg.restKey);else Bmob.initialize(cfg.secret,cfg.apiCode)}catch(e){}}}
+  if(isTeacher)loadTeacherView();
+  else{hide('teacher-actions');$('teacher-content').innerHTML='<p style="color:#888;text-align:center;padding:10px">点击进入教师控制台</p>'}
+  loadStudentTasks();
+  if(!localStorage.getItem('bmob_config')&&!offlineMode)showPage('config');
+}
+function init(){
+  var config=localStorage.getItem('bmob_config'),offline=localStorage.getItem('offline_mode');
+  if(!config&&offline!=='true'){showPage('config');return}
+  showPage('main');
+  if(offline==='true')offlineMode=true;
+  else if(config){try{var cfg=JSON.parse(config);if(cfg.mode==='simple')Bmob.initialize(cfg.appId,cfg.restKey);else Bmob.initialize(cfg.secret,cfg.apiCode)}catch(e){}}
+  loadMainPage();
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',init);else init();
+</script>
+</body>
+</html>
