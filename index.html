@@ -310,8 +310,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica N
       <div id="input-text"><div class="form-group"><label>议论文内容 <span style="color:#dc3545">*</span></label><textarea id="essay-content" placeholder="请输入你的议论文..." style="min-height:200px"></textarea></div></div>
       <div id="input-ocr" style="display:none">
         <div class="form-group"><input type="file" accept="image/*" id="ocr-image" capture="environment" onchange="processOCR(this)"></div>
+        <div id="ocr-preview" style="display:none;margin:10px 0;text-align:center"><img id="ocr-preview-img" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid #ddd"></div>
         <div id="ocr-result"></div>
-        <div id="ocr-loading" class="loading"><div class="spinner"></div><p>正在识别文字...</p></div>
+        <div id="ocr-loading" class="loading"><div class="spinner"></div><p id="ocr-status">正在识别文字...</p></div>
       </div>
       <div id="input-voice" style="display:none">
         <button class="btn btn-full" id="voice-btn" onclick="toggleVoice()">🎤 点击开始录音</button>
@@ -781,7 +782,42 @@ function renderCriteria(inds){
 function switchInputMode(mode){$$('#page-submit .tab').forEach(function(t){t.classList.remove('active')});event.target.classList.add('active');hide('input-text');hide('input-ocr');hide('input-voice');show('input-'+mode)}
 
 // ==================== OCR ====================
-function processOCR(input){if(!input.files||!input.files[0])return;show('ocr-loading');hide('ocr-result');Tesseract.recognize(input.files[0],'chi_sim',{logger:function(){}}).then(function(r){hide('ocr-loading');$('ocr-result').innerHTML='<div class="form-group"><label>识别结果</label><textarea id="essay-content" style="min-height:200px">'+r.data.text+'</textarea></div>'}).catch(function(){hide('ocr-loading');$('ocr-result').innerHTML='<p style="color:#dc3545">识别失败</p>'})}
+var ocrWorker=null;
+async function processOCR(input){
+  if(!input.files||!input.files[0])return;
+  var file=input.files[0];
+  // 显示图片预览
+  var reader=new FileReader();
+  reader.onload=function(e){$('ocr-preview-img').src=e.target.result;show('ocr-preview')};
+  reader.readAsDataURL(file);
+  show('ocr-loading');hide('ocr-result');
+  $('ocr-status').textContent='正在加载识别引擎...';
+  try{
+    // 用createWorker方式（v5兼容）
+    if(typeof Tesseract!=='undefined'){
+      var worker=await Tesseract.createWorker('chi_sim',1,{
+        logger:function(m){
+          if(m.status==='loading tesseract core')$('ocr-status').textContent='正在加载核心引擎...';
+          else if(m.status==='loading language traineddata')$('ocr-status').textContent='正在加载中文语言包...';
+          else if(m.status==='initializing tesseract')$('ocr-status').textContent='正在初始化...';
+          else if(m.status==='recognizing text')$('ocr-status').textContent='正在识别文字...';
+        }
+      });
+      var result=await worker.recognize(file);
+      await worker.terminate();
+      hide('ocr-loading');
+      var text=result.data.text.trim();
+      if(!text){$('ocr-result').innerHTML='<p style="color:#e67e22">未识别到文字，请重新拍照（建议：光线充足、文字清晰、避免倾斜）</p>';return}
+      $('ocr-result').innerHTML='<div class="form-group"><label>识别结果（可修改）</label><textarea id="essay-content" style="min-height:200px">'+text.replace(/</g,'&lt;')+'</textarea></div>';
+    }else{
+      hide('ocr-loading');
+      $('ocr-result').innerHTML='<p style="color:#dc3545">OCR引擎加载失败，请检查网络后刷新页面重试</p>';
+    }
+  }catch(err){
+    hide('ocr-loading');
+    $('ocr-result').innerHTML='<p style="color:#dc3545">识别失败：'+(err.message||'未知错误')+'。请重试或改用文字输入</p>';
+  }
+}
 
 // ==================== 语音 ====================
 function toggleVoice(){
